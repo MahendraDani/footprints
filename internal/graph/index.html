@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Footprints - Chrome Visit Graph</title>
+    <style>
+      :root {
+        --bg: #f8fafc;
+        --card-bg: #ffffff;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --border: #e2e8f0;
+        --primary: #4f46e5;
+        --primary-light: #e0e7ff;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        height: 100%;
+        margin: 0;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: var(--bg);
+        color: var(--text-main);
+        overflow: hidden;
+      }
+      body { display: flex; flex-direction: column; }
+
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: center;
+        padding: 12px 20px;
+        background: var(--card-bg);
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+        z-index: 20;
+      }
+      .brand { display: flex; align-items: center; gap: 8px; }
+      .brand strong { color: var(--primary); font-size: 16px; font-weight: 700; }
+      .badge {
+        font-size: 11px;
+        background: var(--primary-light);
+        color: var(--primary);
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-weight: 600;
+      }
+      input[type="search"] {
+        padding: 6px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 13px;
+        width: 240px;
+        outline: none;
+        background: #f1f5f9;
+        color: var(--text-main);
+        transition: all 0.15s ease;
+      }
+      input[type="search"]:focus {
+        border-color: var(--primary);
+        background: #fff;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+      }
+      label {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 13px;
+        color: var(--text-muted);
+        cursor: pointer;
+        user-select: none;
+      }
+      input[type="checkbox"] { accent-color: var(--primary); width: 15px; height: 15px; cursor: pointer; }
+      #stats { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--text-muted); }
+
+      /* min-height:0 lets main shrink inside the flex column, so the legend isn't pushed off-screen */
+      main { flex: 1; position: relative; min-height: 0; overflow: hidden; }
+
+      /* Default cursor for the canvas; only nodes get the pointer (set on the circles) */
+      svg { width: 100%; height: 100%; display: block; }
+
+      .lbl {
+        font-size: 10px;
+        fill: #334155;
+        text-anchor: middle;
+        pointer-events: none;
+        paint-order: stroke;
+        stroke: #f8fafc;
+        stroke-width: 3px;
+        stroke-linejoin: round;
+      }
+
+      /* Hover card: interactive, so the "Open" link can be clicked */
+      #tip {
+        position: absolute;
+        max-width: 360px;
+        padding: 12px;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font-size: 12px;
+        display: none;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12);
+        z-index: 30;
+      }
+      #tip b { display: block; font-size: 13px; margin-bottom: 4px; line-height: 1.4; word-break: break-word; }
+      #tip .url {
+        color: var(--primary);
+        font-family: ui-monospace, monospace;
+        font-size: 11px;
+        margin-bottom: 8px;
+        word-break: break-all;
+      }
+      #tip .footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        border-top: 1px solid var(--border);
+        padding-top: 8px;
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      #tip a {
+        background: var(--primary-light);
+        color: var(--primary);
+        padding: 3px 10px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      #tip a:hover { background: #c7d2fe; }
+
+      #warn {
+        position: absolute;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        max-width: min(640px, calc(100% - 32px));
+        padding: 10px 14px;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        border-radius: 8px;
+        font-size: 12px;
+        display: none;
+        z-index: 25;
+      }
+
+      #legend {
+        position: absolute;
+        left: 16px;
+        bottom: 16px;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(4px);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+        max-width: 450px;
+        z-index: 10;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      }
+      #legend span { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-weight: 500; }
+      #legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <strong>Footprints</strong>
+        <span class="badge">Visit Graph</span>
+      </div>
+      <input id="q" type="search" placeholder="Highlight URL or title..." />
+      <label><input id="labels" type="checkbox" checked /> Show URLs</label>
+      <label><input id="single" type="checkbox" checked /> Show unlinked</label>
+      <span id="stats"></span>
+    </header>
+
+    <main id="main">
+      <svg id="svg"></svg>
+      <div id="tip"></div>
+      <div id="warn"></div>
+      <div id="legend"></div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      function warn(msg) {
+        const w = $("warn");
+        w.textContent = msg;
+        w.style.display = "block";
+      }
+
+      try {
+        const RAW = __DATA__;
+
+        // Accept both snake_case and Go-style field names, so a missing json tag doesn't break the graph
+        const pick = (r, ...keys) => {
+          for (const k of keys) if (r[k] !== undefined && r[k] !== null) return r[k];
+          return undefined;
+        };
+        const rows = (Array.isArray(RAW) ? RAW : [])
+          .map((r) => ({
+            id: pick(r, "id", "ID", "Id", "visit_id", "VisitID"),
+            from_visit: pick(r, "from_visit", "FromVisit", "fromVisit") || 0,
+            url: String(pick(r, "url", "URL", "Url") ?? ""),
+            title: String(pick(r, "title", "Title") ?? ""),
+            core_transition: pick(r, "core_transition", "CoreTransition", "coreTransition") ?? 0,
+            seconds_on_page: +pick(r, "seconds_on_page", "SecondsOnPage", "secondsOnPage") || 0,
+            visited_at: String(pick(r, "visited_at", "VisitedAt", "visitedAt") ?? ""),
+          }))
+          .filter((r) => r.id !== undefined);
+
+        if (!rows.length) {
+          warn("No visits to show. The data was empty or had no 'id' field.");
+        } else if (rows.every((r) => !r.url)) {
+          warn("No 'url' values found, so labels can't be drawn. Fields received: " +
+            Object.keys(RAW[0]).join(", "));
+        }
+
+        const TR = {
+          0: "Link", 1: "Typed", 2: "Bookmark", 3: "Subframe", 4: "Manual subframe",
+          5: "Generated", 6: "Auto top-level", 7: "Form submit", 8: "Reload",
+          9: "Keyword", 10: "Keyword generated",
+        };
+        const ACC = "#4f46e5"; // highlight color for hovered/selected edges
+        const EDGE = "#cbd5e1";
+        const col = d3.scaleOrdinal()
+          .domain(Object.keys(TR).map(Number))
+          .range(d3.schemeTableau10.concat(["#94a3b8"]));
+
+        const svg = d3.select("#svg"), g = svg.append("g");
+        svg.call(d3.zoom().scaleExtent([0.05, 8]).on("zoom", (e) => g.attr("transform", e.transform)));
+
+        const rad = (d) => 4 + Math.min(10, Math.sqrt((d.seconds_on_page || 0) / 10));
+
+        function shortUrl(u, max = 36) {
+          const s = String(u || "").replace(/^[a-z]+:\/\//i, "").replace(/^www\./, "").replace(/\/$/, "");
+          return s.length > max ? s.slice(0, max - 1) + "…" : s;
+        }
+        function formatDuration(sec) {
+          if (!sec || sec < 1) return "< 1s";
+          if (sec < 60) return `${sec.toFixed(1)}s`;
+          const mins = Math.floor(sec / 60), remSec = Math.round(sec % 60);
+          if (mins < 60) return remSec > 0 ? `${mins}m ${remSec}s` : `${mins}m`;
+          return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+        }
+        const openable = (u) => /^https?:\/\//i.test(u); // browsers block links to chrome://, file://, etc.
+
+        // Graph structure
+        const byId = new Map(rows.map((r) => [r.id, { ...r, deg: 0 }]));
+        const links = [], par = new Map(), kids = new Map(), adj = new Map();
+        const addAdj = (a, b) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a).add(b); };
+
+        byId.forEach((n) => {
+          const p = byId.get(n.from_visit);
+          if (p && p !== n) {
+            links.push({ source: p.id, target: n.id });
+            p.deg++; n.deg++;
+            par.set(n.id, p.id);
+            if (!kids.has(p.id)) kids.set(p.id, []);
+            kids.get(p.id).push(n.id);
+            addAdj(p.id, n.id); addAdj(n.id, p.id);
+          }
+        });
+        const nodes = [...byId.values()];
+
+        let sim, nodeSel, linkSel, labelSel;
+        let sel = null, hoveredId = null, dragging = false, hideTimer = null;
+
+        function chain(id) { // ancestors + all descendants
+          const s = new Set([id]);
+          let p = par.get(id);
+          while (p && !s.has(p)) { s.add(p); p = par.get(p); }
+          const stack = [id];
+          while (stack.length) {
+            const c = stack.pop();
+            (kids.get(c) || []).forEach((k) => { if (!s.has(k)) { s.add(k); stack.push(k); } });
+          }
+          return s;
+        }
+
+        // ---- Hover card ----
+        const tip = $("tip");
+
+        function showCard(el, d) {
+          clearTimeout(hideTimer);
+          tip.replaceChildren();
+
+          const title = document.createElement("b");
+          title.textContent = d.title || "(no title)";
+          const url = document.createElement("div");
+          url.className = "url";
+          url.textContent = d.url;
+
+          const meta = document.createElement("span");
+          meta.textContent = [
+            TR[d.core_transition] ?? d.core_transition,
+            "⏱ " + formatDuration(d.seconds_on_page),
+            d.visited_at,
+          ].filter(Boolean).join(" • ");
+
+          const footer = document.createElement("div");
+          footer.className = "footer";
+          footer.append(meta);
+          if (openable(d.url)) {
+            const a = document.createElement("a");
+            a.href = d.url;
+            a.target = "_blank";
+            a.rel = "noopener noreferrer";
+            a.textContent = "Open ↗";
+            footer.append(a);
+          }
+          tip.append(title, url, footer);
+          tip.style.display = "block";
+
+          // Place the card beside the node (not the cursor), so the mouse can travel onto it
+          const m = $("main").getBoundingClientRect(), n = el.getBoundingClientRect();
+          const tw = tip.offsetWidth, th = tip.offsetHeight, gap = 6;
+          let x = n.right - m.left + gap;
+          if (x + tw > m.width - 8) x = n.left - m.left - tw - gap;
+          x = Math.max(8, x);
+          const y = Math.max(8, Math.min(n.top - m.top + n.height / 2 - th / 2, m.height - th - 8));
+          tip.style.left = x + "px";
+          tip.style.top = y + "px";
+        }
+        function hideCardNow() {
+          clearTimeout(hideTimer);
+          tip.style.display = "none";
+          hoveredId = null;
+        }
+        function scheduleHide() { // short grace period so the mouse can move from node to card
+          clearTimeout(hideTimer);
+          hideTimer = setTimeout(() => { hideCardNow(); paint(); }, 200);
+        }
+        tip.addEventListener("mouseenter", () => clearTimeout(hideTimer));
+        tip.addEventListener("mouseleave", scheduleHide);
+
+        // ---- Render ----
+        function render() {
+          if (sim) sim.stop();
+          hideCardNow();
+
+          const showUnlinked = $("single").checked;
+          const N = nodes.filter((n) => showUnlinked || n.deg > 0);
+          const ids = new Set(N.map((n) => n.id));
+          if (sel !== null && !ids.has(sel)) sel = null;
+
+          const L = links
+            .filter((l) => ids.has(l.source.id ?? l.source) && ids.has(l.target.id ?? l.target))
+            .map((l) => ({ source: l.source.id ?? l.source, target: l.target.id ?? l.target }));
+
+          g.selectAll("*").remove();
+          const width = $("svg").clientWidth, height = $("svg").clientHeight;
+
+          linkSel = g.append("g").selectAll("line").data(L).join("line")
+            .attr("stroke", EDGE).attr("stroke-width", 1);
+
+          nodeSel = g.append("g").selectAll("circle").data(N).join("circle")
+            .attr("r", rad)
+            .attr("fill", (d) => col(d.core_transition))
+            .attr("stroke", "#ffffff")
+            .attr("stroke-width", 1.5)
+            .style("cursor", "pointer") // pointer only over nodes
+            .on("mouseenter", (e, d) => {
+              if (dragging) return;
+              hoveredId = d.id;
+              showCard(e.currentTarget, d);
+              paint();
+            })
+            .on("mouseleave", scheduleHide)
+            .on("click", (e, d) => {
+              e.stopPropagation();
+              sel = sel === d.id ? null : d.id;
+              paint();
+            })
+            .call(
+              d3.drag()
+                .on("start", (e, d) => {
+                  dragging = true;
+                  hideCardNow();
+                  if (!e.active) sim.alphaTarget(0.3).restart();
+                  d.fx = d.x; d.fy = d.y;
+                })
+                .on("drag", (e, d) => { d.fx = e.x; d.fy = e.y; })
+                .on("end", (e, d) => {
+                  dragging = false;
+                  if (!e.active) sim.alphaTarget(0);
+                  d.fx = d.fy = null;
+                }),
+            );
+
+          labelSel = g.append("g").selectAll("text").data(N).join("text")
+            .attr("class", "lbl")
+            .text((d) => shortUrl(d.url));
+
+          sim = d3.forceSimulation(N)
+            .force("link", d3.forceLink(L).id((d) => d.id).distance(65).strength(0.7))
+            .force("charge", d3.forceManyBody().strength(-130))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("x", d3.forceX(width / 2).strength(0.03))
+            .force("y", d3.forceY(height / 2).strength(0.03))
+            .force("collide", d3.forceCollide(16))
+            .on("tick", () => {
+              linkSel
+                .attr("x1", (d) => d.source.x).attr("y1", (d) => d.source.y)
+                .attr("x2", (d) => d.target.x).attr("y2", (d) => d.target.y);
+              nodeSel.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+              labelSel.attr("x", (d) => d.x).attr("y", (d) => d.y + rad(d) + 12);
+            });
+
+          $("stats").textContent =
+            `${N.length} visits · ${L.length} links · ${nodes.filter((n) => n.deg === 0).length} unlinked`;
+          paint();
+        }
+
+        // ---- Highlighting ----
+        // Hover: the node, its direct neighbors, and its edges in the accent color.
+        // Click (selected): the full chain (everything that led to it and everything it led to).
+        function paint() {
+          if (!nodeSel) return;
+          const q = $("q").value.trim().toLowerCase();
+          const hovering = hoveredId !== null;
+          const activeId = hovering ? hoveredId : sel;
+          let S = null;
+          if (activeId !== null) {
+            S = hovering ? new Set([activeId, ...(adj.get(activeId) || [])]) : chain(activeId);
+          }
+          const match = (d) => !q || (d.url + " " + d.title).toLowerCase().includes(q);
+          const on = (d) => match(d) && (!S || S.has(d.id));
+
+          const sid = (l) => l.source.id ?? l.source;
+          const tid = (l) => l.target.id ?? l.target;
+          const lit = (l) =>
+            activeId !== null &&
+            (hovering ? sid(l) === activeId || tid(l) === activeId : S.has(sid(l)) && S.has(tid(l)));
+
+          nodeSel
+            .attr("opacity", (d) => (on(d) ? 1 : 0.12))
+            .attr("stroke", (d) => (d.id === activeId ? ACC : "#ffffff"))
+            .attr("stroke-width", (d) => (d.id === activeId ? 3 : 1.5));
+
+          linkSel
+            .attr("stroke", (l) => (lit(l) ? ACC : EDGE))
+            .attr("stroke-width", (l) => (lit(l) ? 2.5 : 1))
+            .attr("opacity", (l) => {
+              if (lit(l)) return 1;
+              if (S) return 0.06;
+              if (q) return match(byId.get(sid(l))) && match(byId.get(tid(l))) ? 0.7 : 0.06;
+              return 0.85;
+            });
+
+          labelSel
+            .style("display", $("labels").checked ? null : "none")
+            .attr("opacity", (d) => (on(d) ? 1 : 0.1));
+        }
+
+        $("q").oninput = paint;
+        $("labels").onchange = paint;
+        $("single").onchange = render;
+        svg.on("click", () => { sel = null; paint(); });
+        window.addEventListener("resize", render);
+
+        $("legend").innerHTML =
+          Object.entries(TR).slice(0, 9)
+            .map(([k, v]) => `<span><i style="background:${col(+k)}"></i>${v}</span>`)
+            .join("") + '<span style="color:#94a3b8;">Size = time on page</span>';
+
+        render();
+      } catch (err) {
+        console.error("Error rendering graph:", err);
+        warn("Graph failed to render: " + err.message);
+      }
+    </script>
+  </body>
+</html>
