@@ -15,6 +15,12 @@ curl -fsSL https://raw.githubusercontent.com/MahendraDani/footprints/main/instal
 This puts the `footprints` binary in `~/.footprints/bin` and adds that folder to your `PATH`.
 Open a new terminal (or run `source ~/.zshrc`) and check:
 
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/MahendraDani/footprints/main/install.ps1 | iex
+```
+
 ```bash
 footprints --version
 ```
