@@ -1,16 +1,15 @@
 /*
 Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
 import (
+	"fmt"
 	"os"
 
+	"github.com/MahendraDani/footprints/internal/update"
 	"github.com/spf13/cobra"
 )
-
-
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -30,7 +29,11 @@ to quickly create a Cobra application.`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	notice := update.Start(version, os.Args[1:])
 	err := rootCmd.Execute()
+	if msg := notice(); msg != "" {
+		fmt.Fprint(os.Stderr, msg)
+	}
 	if err != nil {
 		os.Exit(1)
 	}
@@ -45,7 +48,7 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
+	rootCmd.Version = version
+	rootCmd.SetVersionTemplate("{{.Name}} {{.Version}}\n")
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
-
-
