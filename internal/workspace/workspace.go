@@ -8,6 +8,7 @@ import (
 )
 
 const WorkspaceDirName = ".footprints"
+const versionFileName = "version.json"
 
 // RootDir returns the root workspace path (~/.footprints)
 func RootDir() (string, error) {
@@ -75,4 +76,34 @@ func ChromeSourcePath() (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
 	}
+}
+
+// EnsureRoot creates ~/.footprints (if missing) and returns its path.
+func EnsureRoot() (string, error) {
+	root, err := RootDir()
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(root, 0755); err != nil {
+		return "", fmt.Errorf("failed to create workspace root: %w", err)
+	}
+	return root, nil
+}
+
+// VersionPath returns the update-check cache path (~/.footprints/version.json)
+func VersionPath() (string, error) {
+	root, err := RootDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(root, versionFileName), nil
+}
+
+// BinDir returns where install.sh places the executable (~/.footprints/bin)
+func BinDir() (string, error) {
+	root, err := RootDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(root, "bin"), nil
 }
