@@ -71,18 +71,27 @@
         background: #2b1f1f; border: 1px solid #5c3a3a; color: #d9a3a3; border-radius: 6px;
       }
       #legend {
-        position: absolute; left: 16px; bottom: 16px; z-index: 10; max-width: 460px;
-        display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 12px;
+        position: absolute; left: 16px; bottom: 16px; z-index: 10; max-width: min(560px, calc(100% - 32px));
+        display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 6px 8px;
         background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--mut);
       }
-      #legend span { display: flex; align-items: center; gap: 6px; }
-      #legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+      #legend .note { padding: 0 6px; }
+      .chip {
+        display: flex; align-items: center; gap: 6px; padding: 2px 8px; font: inherit; color: var(--mut);
+        background: none; border: 1px solid transparent; border-radius: 6px; cursor: pointer;
+      }
+      .chip:hover { border-color: var(--line); color: var(--fg); }
+      .chip i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+      .chip.off { opacity: 0.45; text-decoration: line-through; }
+      .chip.off i { background: transparent !important; box-shadow: inset 0 0 0 1px var(--mut); }
+      .chip.all { color: var(--acc); }
     </style>
   </head>
   <body>
     <header>
       <div class="brand">footprints <span>~/graph</span></div>
       <input id="q" type="search" placeholder="filter url or title  ( / )" />
+      <label><input id="dir" type="checkbox" /> directed <kbd>d</kbd></label>
       <label><input id="labels" type="checkbox" checked /> labels <kbd>l</kbd></label>
       <label><input id="single" type="checkbox" /> unlinked <kbd>u</kbd></label>
       <span id="stats"></span>
@@ -100,13 +109,13 @@
       const warn = (m) => { const w = $("warn"); w.textContent = m; w.style.display = "block"; };
 
       try {
+        const CFG = __CONFIG__;
         const RAW = __DATA__;
         const rows = (Array.isArray(RAW) ? RAW : []).filter((r) => r && r.id != null);
         if (!rows.length) warn("No visits to show.");
 
         const TR = { 0: "Link", 1: "Typed", 2: "Bookmark", 3: "Subframe", 4: "Manual subframe", 5: "Generated",
                      6: "Auto top-level", 7: "Form submit", 8: "Reload", 9: "Keyword", 10: "Keyword generated" };
-        // Muted, desaturated palette
         const COL = { 0: "#7f8fb8", 1: "#b98aa8", 2: "#c4a46a", 3: "#6b6b6b", 4: "#858585", 5: "#9a86c7",
                       6: "#c28c68", 7: "#8fae7a", 8: "#b8706e", 9: "#6fa8a0", 10: "#b583b0" };
         const ACC = "#9488dd", BG = "#1e1e1e", FG = "#dadada";
@@ -140,11 +149,17 @@
           id: r.id, from: r.from_visit || 0, url: r.url || "", title: r.title || "",
           tr: r.core_transition ?? 0, sec: +r.seconds_on_page || 0, at: r.visited_at || "", deg: 0,
         }]));
-        const links = [], adj = new Map();
+        const links = [], par = new Map(), kids = new Map(), adj = new Map();
         const addAdj = (a, b) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a).add(b); };
         byId.forEach((n) => {
           const p = byId.get(n.from);
-          if (p && p !== n) { links.push({ s: p.id, t: n.id }); p.deg++; n.deg++; addAdj(p.id, n.id); addAdj(n.id, p.id); }
+          if (p && p !== n) {
+            links.push({ s: p.id, t: n.id }); p.deg++; n.deg++;
+            par.set(n.id, p.id);
+            if (!kids.has(p.id)) kids.set(p.id, []);
+            kids.get(p.id).push(n.id);
+            addAdj(p.id, n.id); addAdj(n.id, p.id);
+          }
         });
         const nodes = [...byId.values()];
         nodes.forEach((n) => {
@@ -153,14 +168,12 @@
           n.p = n.deg * 1000 + n.sec; // label priority: hubs and long visits win
         });
 
-        // Connected components: hovering a node lights its whole tree, however far the links go
-        const comp = new Map();
-        nodes.forEach((n) => {
-          if (comp.has(n.id)) return;
-          const s = new Set([n.id]), st = [n.id];
-          comp.set(n.id, s);
-          while (st.length) for (const m of adj.get(st.pop()) || []) if (!s.has(m)) { s.add(m); comp.set(m, s); st.push(m); }
-        });
+        // ---- Modes and filters ----
+        let dirOn = !!CFG.directed;
+        $("dir").checked = dirOn;
+        const allTypes = [...new Set(nodes.map((n) => n.tr))].sort((a, b) => a - b);
+        const typeOn = new Set(allTypes);
+        const vis = (n) => typeOn.has(n.tr);
 
         // ---- Canvas + zoom ----
         const canvas = $("c"), ctx = canvas.getContext("2d"), main = $("main");
@@ -179,16 +192,61 @@
         // ---- State ----
         let sim, simNodes = [], simIds = new Set(), L = [], byPrio = [], hidden = 0;
         let sel = null, hoveredId = null, activeId = null, S = null, SL = null, M = null;
-        const on = (n) => (!M || M.has(n.id)) && (!S || S.has(n.id));
+        const on = (n) => vis(n) && (!M || M.has(n.id)) && (!S || S.has(n.id));
+        const ok = (id) => simIds.has(id) && vis(byId.get(id));
 
+        // Undirected: everything connected, however far. Directed: the path that led here + everything it led to.
+        function reach(id) {
+          const s = new Set([id]), st = [id];
+          if (!dirOn) {
+            while (st.length) for (const m of adj.get(st.pop()) || []) if (!s.has(m) && ok(m)) { s.add(m); st.push(m); }
+          } else {
+            let p = par.get(id);
+            while (p != null && !s.has(p) && ok(p)) { s.add(p); p = par.get(p); }
+            while (st.length) for (const k of kids.get(st.pop()) || []) if (!s.has(k) && ok(k)) { s.add(k); st.push(k); }
+          }
+          return s;
+        }
         function recompute() {
           const q = $("q").value.trim().toLowerCase();
           activeId = hoveredId ?? sel;
-          S = activeId == null ? null : comp.get(activeId);
-          SL = S && [...S].map((id) => byId.get(id)).filter((n) => simIds.has(n.id))
+          S = activeId == null ? null : reach(activeId);
+          SL = S && [...S].map((id) => byId.get(id))
             .sort((a, b) => (b.id === activeId) - (a.id === activeId) || b.p - a.p);
           M = q ? new Set(simNodes.filter((n) => (n.url + " " + n.title).toLowerCase().includes(q)).map((n) => n.id)) : null;
           dirty = true;
+        }
+        function updateStats() {
+          const vn = simNodes.filter(vis).length, vl = L.filter((l) => vis(l.source) && vis(l.target)).length;
+          $("stats").textContent = `${vn.toLocaleString()} visits · ${vl.toLocaleString()} links` +
+            (hidden ? ` · ${hidden.toLocaleString()} unlinked hidden` : "");
+        }
+
+        // ---- Legend: clickable transition-type filters ----
+        const chips = new Map();
+        function refreshChips() { chips.forEach((b, t) => b.classList.toggle("off", !typeOn.has(t))); }
+        function typesChanged() {
+          refreshChips();
+          if (hoveredId != null && !ok(hoveredId)) hoveredId = null;
+          if (sel != null && !ok(sel)) sel = null;
+          recompute(); syncCard(); updateStats();
+        }
+        function renderLegend() {
+          const cnt = d3.rollup(simNodes, (v) => v.length, (n) => n.tr);
+          const el = $("legend"); el.replaceChildren(); chips.clear();
+          for (const t of [...cnt.keys()].sort((a, b) => a - b)) {
+            const b = document.createElement("button"); b.className = "chip";
+            b.title = "click: show/hide · double-click: show only this";
+            const i = document.createElement("i"); i.style.background = COL[t] || "#858585";
+            b.append(i, `${TR[t] ?? t} ${cnt.get(t).toLocaleString()}`);
+            b.onclick = () => { typeOn.has(t) ? typeOn.delete(t) : typeOn.add(t); typesChanged(); };
+            b.ondblclick = () => { typeOn.clear(); typeOn.add(t); typesChanged(); };
+            chips.set(t, b); el.append(b);
+          }
+          const all = document.createElement("button"); all.className = "chip all"; all.textContent = "all";
+          all.onclick = () => { allTypes.forEach((t) => typeOn.add(t)); typesChanged(); };
+          const note = document.createElement("span"); note.className = "note"; note.textContent = "size = time on page";
+          el.append(all, note); refreshChips();
         }
 
         // ---- Layout: warm up before the first paint, then relax live ----
@@ -224,42 +282,58 @@
              .on("end", () => { if (!userMoved) fit(); })
              .alpha(0.5).restart();
 
-          $("stats").textContent = `${simNodes.length.toLocaleString()} visits · ${L.length.toLocaleString()} links` +
-            (hidden ? ` · ${hidden.toLocaleString()} unlinked hidden` : "");
+          renderLegend(); updateStats();
           recompute(); syncCard();
         }
 
         // ---- Drawing ----
         const TAU = Math.PI * 2;
+        function arrow(path, l, size, k) { // triangle at the target's edge, pointing along source -> target
+          const dx = l.target.x - l.source.x, dy = l.target.y - l.source.y, len = Math.hypot(dx, dy);
+          const gap = l.target.r + 1.5 / k;
+          if (len < gap + size * 1.6) return;
+          const ux = dx / len, uy = dy / len, bx = l.target.x - ux * gap, by = l.target.y - uy * gap, w = size * 0.45;
+          path.moveTo(bx, by);
+          path.lineTo(bx - ux * size + uy * w, by - uy * size - ux * w);
+          path.lineTo(bx - ux * size - uy * w, by - uy * size + ux * w);
+          path.closePath();
+        }
         function draw(t) {
-          const k = T.k;
+          const k = T.k, size = Math.min(7 / k, 14);
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
           ctx.clearRect(0, 0, W, H);
           ctx.save();
           ctx.translate(T.x, T.y); ctx.scale(k, k);
 
-          const hot = [];
-          ctx.lineWidth = 1 / k; ctx.strokeStyle = "#555";
-          ctx.globalAlpha = S ? 0.05 : M ? 0.12 : 0.5;
-          ctx.beginPath();
+          const cold = new Path2D(), coldH = new Path2D(), hot = new Path2D(), hotH = new Path2D();
+          let nHot = 0;
           for (const l of L) {
-            if (S && S.has(l.source.id)) { hot.push(l); continue; }
-            ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y);
+            const a = l.source, b = l.target;
+            if (!vis(a) || !vis(b)) continue;
+            const isHot = S && S.has(a.id) && S.has(b.id);
+            const p = isHot ? hot : cold;
+            p.moveTo(a.x, a.y); p.lineTo(b.x, b.y);
+            if (isHot) nHot++;
+            if (dirOn) arrow(isHot ? hotH : coldH, l, size, k);
           }
-          ctx.stroke();
-          anim = hot.length > 0 && hot.length < 600 && !calm;
-          if (hot.length) { // dashes flow from the earlier visit to the later one
-            ctx.globalAlpha = 0.9; ctx.strokeStyle = ACC; ctx.lineWidth = 1.8 / k;
+          ctx.lineWidth = 1 / k; ctx.strokeStyle = "#555"; ctx.fillStyle = "#666";
+          ctx.globalAlpha = S ? 0.05 : M ? 0.12 : 0.5;
+          ctx.stroke(cold);
+          if (dirOn) ctx.fill(coldH);
+
+          anim = dirOn && nHot > 0 && nHot < 600 && !calm; // flowing dashes only make sense when direction matters
+          if (nHot) {
+            ctx.globalAlpha = 0.9; ctx.strokeStyle = ACC; ctx.fillStyle = ACC; ctx.lineWidth = 1.8 / k;
             ctx.setLineDash([7 / k, 5 / k]);
             ctx.lineDashOffset = anim ? (-(t || 0) * 0.03) / k : 0;
-            ctx.beginPath();
-            for (const l of hot) { ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y); }
-            ctx.stroke();
+            ctx.stroke(hot);
             ctx.setLineDash([]);
+            if (dirOn) ctx.fill(hotH);
           }
 
           for (const pass of [false, true]) { // dimmed nodes first, lit nodes on top
             for (const n of simNodes) {
+              if (!vis(n)) continue;
               const o = on(n);
               if (o !== pass) continue;
               ctx.globalAlpha = o ? 1 : 0.12;
@@ -270,7 +344,7 @@
           ctx.globalAlpha = 1;
           for (const [id, color] of [[sel, FG], [hoveredId, ACC]]) { // selected = light ring, hovered = accent ring
             const n = id != null && byId.get(id);
-            if (!n || n.x === undefined || !simIds.has(id)) continue;
+            if (!n || n.x === undefined || !simIds.has(id) || !vis(n)) continue;
             ctx.lineWidth = 2 / k; ctx.strokeStyle = color;
             ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 2 / k, 0, TAU); ctx.stroke();
           }
@@ -311,7 +385,7 @@
         const tip = $("tip");
         let cardFor = null, cw = 320, ch = 0;
         function syncCard() {
-          if (sel == null || !simIds.has(sel)) { tip.style.display = "none"; cardFor = null; return; }
+          if (sel == null || !ok(sel)) { tip.style.display = "none"; cardFor = null; return; }
           if (cardFor === sel) return;
           const n = byId.get(sel);
           tip.replaceChildren();
@@ -343,10 +417,18 @@
 
         // ---- Interaction ----
         let dragging = false;
+        function findNode(x, y) { // nearest visible node under the point
+          let best = null, bd = Infinity;
+          for (const n of simNodes) {
+            if (!vis(n)) continue;
+            const d = Math.hypot(n.x - x, n.y - y);
+            if (d <= n.r + 8 / T.k && d < bd) { bd = d; best = n; }
+          }
+          return best;
+        }
         const nodeAt = (e) => {
-          if (!sim || !simNodes.length) return undefined;
           const r = canvas.getBoundingClientRect(), p = T.invert([e.clientX - r.left, e.clientY - r.top]);
-          return sim.find(p[0], p[1], 12 / T.k);
+          return findNode(p[0], p[1]);
         };
         canvas.addEventListener("mousemove", (e) => {
           if (dragging) return;
@@ -363,7 +445,7 @@
 
         d3.select(canvas) // drag is registered before zoom, so grabbing a node doesn't pan
           .call(d3.drag().container(canvas)
-            .subject((e) => { const p = T.invert([e.x, e.y]); return sim.find(p[0], p[1], 12 / T.k); })
+            .subject((e) => { const p = T.invert([e.x, e.y]); return findNode(p[0], p[1]); })
             .on("start", (e) => {
               dragging = true;
               if (!e.active) sim.alphaTarget(0.3).restart();
@@ -376,6 +458,7 @@
 
         $("q").oninput = recompute;
         $("labels").onchange = () => { dirty = true; };
+        $("dir").onchange = () => { dirOn = $("dir").checked; recompute(); };
         $("single").onchange = () => { userMoved = false; build(); };
         addEventListener("resize", resize);
         addEventListener("keydown", (e) => {
@@ -384,15 +467,12 @@
           if (e.key === "/") { e.preventDefault(); $("q").focus(); }
           else if (e.key === "l") $("labels").click();
           else if (e.key === "u") $("single").click();
+          else if (e.key === "d") $("dir").click();
         });
-
-        $("legend").innerHTML = Object.entries(TR).slice(0, 9)
-          .map(([k, v]) => `<span><i style="background:${COL[k]}"></i>${v}</span>`).join("") +
-          "<span>size = time on page</span>";
 
         resize();
         build();
-        requestAnimationFrame(frame); 
+        requestAnimationFrame(frame); // start drawing only after all state is initialized
       } catch (err) {
         console.error(err);
         warn("Graph failed to render: " + err.message);
