@@ -15,6 +15,10 @@ import (
 var updateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update footprints to the latest release",
+	Long: `Downloads and runs the latest install script, replacing the installed binary.
+
+footprints also checks for new releases once a day and prints a notice when one
+is available. Set FOOTPRINTS_NO_UPDATE_CHECK=1 to turn that check off.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if runtime.GOOS == "windows" {
 			return fmt.Errorf("self-update isn't supported on Windows yet; download the latest build from https://github.com/%s/releases/latest", update.Repo)

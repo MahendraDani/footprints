@@ -1,13 +1,20 @@
 #!/bin/sh
 # footprints installer
 #   curl -fsSL https://raw.githubusercontent.com/MahendraDani/footprints/main/install.sh | sh
-# Env: FOOTPRINTS_VERSION=v0.1.0 to pin a version, FOOTPRINTS_INSTALL_DIR to change the target.
+#
+# Env:
+#   FOOTPRINTS_VERSION=v0.1.0         install a specific version (default: latest)
+#   FOOTPRINTS_INSTALL_DIR=/some/dir  install somewhere specific
+#
+# Default install location: ~/.local/bin
+# If footprints is already installed, it is replaced in place (so `footprints update` keeps working).
 set -eu
 
 REPO="MahendraDani/footprints"
 BIN="footprints"
-INSTALL_DIR="${FOOTPRINTS_INSTALL_DIR:-$HOME/.footprints/bin}"
 VERSION="${FOOTPRINTS_VERSION:-latest}"
+INSTALL_DIR=""
+PATH_RC=""
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -17,7 +24,7 @@ detect_platform() {
   case "$(uname -s)" in
     Darwin) OS=darwin ;;
     Linux)  OS=linux ;;
-    *) die "unsupported OS: $(uname -s). Download a build from https://github.com/$REPO/releases" ;;
+    *) die "unsupported OS: $(uname -s). On Windows, use install.ps1 (see the README)." ;;
   esac
   case "$(uname -m)" in
     x86_64|amd64)  ARCH=amd64 ;;
@@ -36,28 +43,68 @@ sha256_of() {
   fi
 }
 
+# Where to install:
+#   1. FOOTPRINTS_INSTALL_DIR, if set
+#   2. the folder of an existing install, so updates replace the binary in place
+#   3. ~/.local/bin
+pick_install_dir() {
+  if [ -n "${FOOTPRINTS_INSTALL_DIR:-}" ]; then
+    INSTALL_DIR="$FOOTPRINTS_INSTALL_DIR"
+    return 0
+  fi
+
+  existing="$(command -v "$BIN" 2>/dev/null || true)"
+  if [ -n "$existing" ] && [ -f "$existing" ] && [ ! -L "$existing" ] && [ -w "$(dirname "$existing")" ]; then
+    INSTALL_DIR="$(dirname "$existing")"
+    return 0
+  fi
+
+  INSTALL_DIR="$HOME/.local/bin"
+}
+
+# If INSTALL_DIR isn't on PATH, add it to the user's shell config.
+# Sets PATH_RC to the file we touched so main() can tell the user what to source.
 add_to_path() {
   case ":$PATH:" in *":$INSTALL_DIR:"*) return 0 ;; esac
-  case "$(basename "${SHELL:-}")" in
-    zsh)  rc="$HOME/.zshrc" ;;
-    bash) if [ -f "$HOME/.bashrc" ]; then rc="$HOME/.bashrc"; else rc="$HOME/.bash_profile"; fi ;;
-    *)    rc="" ;;
+
+  # Write $HOME instead of the expanded path, so the config line stays portable
+  case "$INSTALL_DIR" in
+    "$HOME"/*) dir_expr="\$HOME${INSTALL_DIR#"$HOME"}" ;;
+    *)         dir_expr="$INSTALL_DIR" ;;
   esac
-  line="export PATH=\"$INSTALL_DIR:\$PATH\""
-  if [ -n "$rc" ]; then
-    if ! grep -qsF "$INSTALL_DIR" "$rc"; then
-      printf '\n# footprints\n%s\n' "$line" >> "$rc"
-    fi
-    say "Added $INSTALL_DIR to your PATH in $rc. Restart your shell or run: source $rc"
-  else
-    say "Add this to your shell profile:  $line"
+
+  line="export PATH=\"$dir_expr:\$PATH\""
+  case "$(basename "${SHELL:-}")" in
+    zsh)  rc="${ZDOTDIR:-$HOME}/.zshrc" ;;
+    bash)
+      if [ "$OS" = "darwin" ]; then rc="$HOME/.bash_profile"
+      elif [ -f "$HOME/.bashrc" ]; then rc="$HOME/.bashrc"
+      else rc="$HOME/.bash_profile"; fi ;;
+    fish)
+      rc="$HOME/.config/fish/config.fish"
+      line="fish_add_path \"$INSTALL_DIR\""
+      mkdir -p "$(dirname "$rc")" ;;
+    *) rc="" ;;
+  esac
+
+  if [ -z "$rc" ]; then
+    say ""
+    say "Add this line to your shell profile, then restart your terminal:"
+    say "    $line"
+    return 0
   fi
+
+  if ! grep -qsF "$dir_expr" "$rc" && ! grep -qsF "$INSTALL_DIR" "$rc"; then
+    printf '\n# footprints\n%s\n' "$line" >> "$rc"
+  fi
+  PATH_RC="$rc"
 }
 
 main() {
   need curl
   need tar
   detect_platform
+  pick_install_dir
 
   asset="${BIN}_${OS}_${ARCH}.tar.gz"
   if [ "$VERSION" = "latest" ]; then
@@ -79,14 +126,33 @@ main() {
   [ "$want" = "$got" ] || die "checksum mismatch for $asset"
 
   tar -xzf "$tmp/$asset" -C "$tmp" "$BIN"
-  mkdir -p "$INSTALL_DIR"
+  mkdir -p "$INSTALL_DIR" || die "could not create $INSTALL_DIR"
   mv "$tmp/$BIN" "$INSTALL_DIR/$BIN.new"
   chmod +x "$INSTALL_DIR/$BIN.new"
   mv -f "$INSTALL_DIR/$BIN.new" "$INSTALL_DIR/$BIN" # atomic replace, safe even while the old binary runs
 
-  say "Installed: $("$INSTALL_DIR/$BIN" --version)"
+  say "Installed $("$INSTALL_DIR/$BIN" --version) to $INSTALL_DIR"
   add_to_path
-  say "Try it:  $BIN graph"
+
+  # Warn if some other copy earlier on PATH will win
+  resolved="$(command -v "$BIN" 2>/dev/null || true)"
+  if [ -n "$resolved" ] && [ "$resolved" != "$INSTALL_DIR/$BIN" ]; then
+    say ""
+    say "Note: your shell currently runs $resolved instead of $INSTALL_DIR/$BIN."
+    say "Remove the old one to use this version."
+  fi
+
+  say ""
+  if [ -n "$PATH_RC" ]; then
+    say "Last step: footprints isn't on this terminal's PATH yet."
+    say "Open a new terminal tab, or run:"
+    say ""
+    say "    source $PATH_RC"
+    say ""
+    say "Then try:  $BIN graph"
+  else
+    say "Ready. Try:  $BIN graph"
+  fi
 }
 
 main "$@"

@@ -12,7 +12,10 @@ import (
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize footprints workspace and cache Chrome history",
-	Long:  `Sets up the local ~/.footprints directory and copies your Chrome history`,
+	Long: `Creates ~/.footprints and copies your Chrome history file into it.
+
+Chrome locks its history database while it is running, so footprints works
+on a copy instead. Re-run this command to refresh the copy with your latest history.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Initializing footprints...")
 
