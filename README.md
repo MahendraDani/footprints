@@ -4,6 +4,66 @@
 
 bullshit, I know that having History database is power, but I don't know how to use it yet and in which ways? this doc describes things I've figured out so far and I'd like to use myself.
 
+## Install
+
+**macOS and Linux:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MahendraDani/footprints/main/install.sh | sh
+```
+
+This puts the `footprints` binary in `~/.footprints/bin` and adds that folder to your `PATH`.
+Open a new terminal (or run `source ~/.zshrc`) and check:
+
+```bash
+footprints --version
+```
+
+**Windows:** download `footprints_windows_amd64.zip` from the
+[latest release](https://github.com/MahendraDani/footprints/releases/latest), unzip it, and put
+`footprints.exe` somewhere on your `PATH`.
+
+### Quick start
+
+```bash
+footprints init     # copy your Chrome history into ~/.footprints
+footprints graph    # generate the visit graph and open it in your browser
+```
+
+### Update
+
+footprints checks for new releases once a day and prints a notice when one is available. To upgrade:
+
+```bash
+footprints update
+```
+
+To turn the check off, set `FOOTPRINTS_NO_UPDATE_CHECK=1`.
+
+### Install a specific version
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MahendraDani/footprints/main/install.sh | sh
+```
+
+### Uninstall
+
+```bash
+rm ~/.footprints/bin/footprints
+```
+
+Then remove the `# footprints` PATH line from your shell config. Your data lives in `~/.footprints`, so delete that folder too if you want everything gone.
+
+### Build from source
+
+Requires Go 1.26+.
+
+```bash
+git clone https://github.com/MahendraDani/footprints.git
+cd footprints
+go build -o footprints .
+```
+
 ## decisions
 
 - **Interface:** CLI (def! I'm biased on using Go, but python's easier for me to write/read.)
