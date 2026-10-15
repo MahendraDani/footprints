@@ -54,11 +54,24 @@ curl -fsSL https://raw.githubusercontent.com/MahendraDani/footprints/main/instal
 
 ### Uninstall
 
+macOS and Linux:
+
 ```bash
-rm ~/.footprints/bin/footprints
+curl -fsSL https://raw.githubusercontent.com/MahendraDani/footprints/main/uninstall.sh | sh
 ```
 
-Then remove the `# footprints` PATH line from your shell config. Your data lives in `~/.footprints`, so delete that folder too if you want everything gone.
+This removes the binary and the PATH line the installer added. Your data in `~/.footprints`
+(a cached copy of your Chrome history and generated graphs) is kept. To delete it as well:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MahendraDani/footprints/main/uninstall.sh | sh -s -- --purge
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/MahendraDani/footprints/main/uninstall.ps1 | iex
+```
 
 ### Build from source
 
