@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/MahendraDani/footprints/internal/banner"
 	"github.com/MahendraDani/footprints/internal/update"
 	"github.com/MahendraDani/footprints/internal/workspace"
 	"github.com/spf13/cobra"
@@ -25,6 +26,12 @@ file and generates a local HTML page. Nothing is uploaded anywhere.`,
   footprints graph --directed      # draw arrows from earlier to later visits
   footprints update                # upgrade to the latest release`,
 	SilenceUsage: true, // don't dump the help text when a command fails at runtime
+
+	// Triggered when someone runs just "footprints" with no subcommands
+	Run: func(cmd *cobra.Command, args []string) {
+		banner.PrintBanner() // 🐾 Print your custom ASCII art here!
+		_ = cmd.Help()       // Follow up with the helpful usage info
+	},
 
 	// Upgrades ~/.footprints to the current layout before any real command runs.
 	// It's idempotent and costs one small file read once the workspace is current.
