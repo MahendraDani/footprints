@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 )
 
 // mockHome isolates tests by pointing HOME/USERPROFILE to a temporary directory
@@ -105,9 +106,7 @@ func TestCurrentProfile(t *testing.T) {
 		t.Errorf("expected ErrNoProfile before init, got %v", err)
 	}
 
-	if err := SaveConfig(Config{ChromeProfile: "Profile 1"}); err != nil {
-		t.Fatalf("failed to save config: %v", err)
-	}
+	useProfile(t, "Profile 1")
 	got, err := CurrentProfile()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -121,9 +120,7 @@ func TestCurrentProfileRejectsTamperedConfig(t *testing.T) {
 	mockHome(t)
 
 	// A hand-edited config must not be able to point outside ~/.footprints/chrome
-	if err := SaveConfig(Config{ChromeProfile: "../../etc"}); err != nil {
-		t.Fatalf("failed to save config: %v", err)
-	}
+	useProfile(t, "../../etc")
 	_, err := CurrentProfile()
 	if err == nil || errors.Is(err, ErrNoProfile) {
 		t.Errorf("expected an invalid-profile error, got %v", err)
@@ -136,15 +133,13 @@ func TestCurrentProfileRejectsTamperedConfig(t *testing.T) {
 func TestSaveConfigStampsSchema(t *testing.T) {
 	mockHome(t)
 
-	if err := SaveConfig(Config{ChromeProfile: "Default"}); err != nil {
-		t.Fatalf("failed to save config: %v", err)
-	}
+	useProfile(t, "Default")
 	cfg := LoadConfig()
 	if cfg.Schema != SchemaVersion {
 		t.Errorf("Schema = %d, want %d", cfg.Schema, SchemaVersion)
 	}
-	if cfg.ChromeProfile != "Default" {
-		t.Errorf("ChromeProfile = %q, want %q", cfg.ChromeProfile, "Default")
+	if cfg.Chrome.Current != "Default" {
+		t.Errorf("ChromeProfile = %q, want %q", cfg.Chrome.Current, "Default")
 	}
 }
 
@@ -158,9 +153,7 @@ func TestHistoryAndGraphPathFollowCurrentProfile(t *testing.T) {
 		t.Errorf("GraphPath before init: expected ErrNoProfile, got %v", err)
 	}
 
-	if err := SaveConfig(Config{ChromeProfile: "Profile 2"}); err != nil {
-		t.Fatalf("failed to save config: %v", err)
-	}
+	useProfile(t, "Profile 2")
 	base := filepath.Join(tmpDir, ".footprints", "chrome", "Profile 2")
 
 	hp, err := HistoryPath()
@@ -189,9 +182,7 @@ func TestIsInitialized(t *testing.T) {
 	}
 
 	// Profile chosen, but nothing cached yet
-	if err := SaveConfig(Config{ChromeProfile: "Default"}); err != nil {
-		t.Fatalf("failed to save config: %v", err)
-	}
+	useProfile(t, "Default")
 	if IsInitialized() {
 		t.Errorf("expected IsInitialized() to be false when History file is missing")
 	}
@@ -209,21 +200,73 @@ func TestSwitchingProfilesKeepsBothCopies(t *testing.T) {
 	a := writeHistory(t, "Default")
 	b := writeHistory(t, "Profile 1")
 
-	if err := SaveConfig(Config{ChromeProfile: "Default"}); err != nil {
-		t.Fatalf("failed to save config: %v", err)
-	}
+	useProfile(t, "Default")
 	if hp, _ := HistoryPath(); hp != a {
 		t.Errorf("HistoryPath = %s, want %s", hp, a)
 	}
 
 	// Switching the dispatcher must not touch the previous profile's cached copy
-	if err := SaveConfig(Config{ChromeProfile: "Profile 1"}); err != nil {
-		t.Fatalf("failed to save config: %v", err)
-	}
+	useProfile(t, "Profile 1")
 	if hp, _ := HistoryPath(); hp != b {
 		t.Errorf("HistoryPath = %s, want %s", hp, b)
 	}
 	if _, err := os.Stat(a); err != nil {
 		t.Errorf("previous profile's copy should still exist: %v", err)
+	}
+}
+
+// useProfile sets the current profile in config.json.
+func useProfile(t *testing.T, name string) {
+	t.Helper()
+	if err := SaveConfig(Config{Chrome: ChromeConfig{Current: name}}); err != nil {
+		t.Fatalf("failed to save config: %v", err)
+	}
+}
+
+func TestRecordSync(t *testing.T) {
+	mockHome(t)
+	t1 := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	t2 := t1.Add(48 * time.Hour)
+
+	if err := RecordSync("Default", "Person 1", "a@x.com", t1); err != nil {
+		t.Fatal(err)
+	}
+	if err := RecordSync("Profile 1", "Work", "w@x.com", t2); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := LoadConfig()
+	if cfg.Chrome.Current != "Profile 1" {
+		t.Errorf("Current = %q, want Profile 1", cfg.Chrome.Current)
+	}
+	d, ok := cfg.Chrome.Profiles["Default"]
+	if !ok || d.Name != "Person 1" || d.Username != "a@x.com" || !d.LastSynced.Equal(t1) {
+		t.Errorf("Default entry wrong: %+v", d)
+	}
+
+	// Re-syncing Default moves "current" back and updates only its own timestamp
+	t3 := t2.Add(time.Hour)
+	if err := RecordSync("Default", "Person 1", "a@x.com", t3); err != nil {
+		t.Fatal(err)
+	}
+	cfg = LoadConfig()
+	if cfg.Chrome.Current != "Default" {
+		t.Errorf("Current = %q, want Default", cfg.Chrome.Current)
+	}
+	if !cfg.Chrome.Profiles["Default"].LastSynced.Equal(t3) {
+		t.Error("Default's last_synced should have been refreshed")
+	}
+	if !cfg.Chrome.Profiles["Profile 1"].LastSynced.Equal(t2) {
+		t.Error("Profile 1's last_synced must not change")
+	}
+}
+
+func TestRecordSyncRejectsUnsafeName(t *testing.T) {
+	mockHome(t)
+	if err := RecordSync("../escape", "x", "", time.Now()); err == nil {
+		t.Error("expected an error for an unsafe profile name")
+	}
+	if p := LoadConfig().Chrome.Current; p != "" {
+		t.Errorf("config must not be modified on error, Current = %q", p)
 	}
 }

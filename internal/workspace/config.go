@@ -4,12 +4,27 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"time"
 )
+
+// ChromeProfileInfo is what footprints remembers about one cached Chrome profile.
+type ChromeProfileInfo struct {
+	Name       string    `json:"name,omitempty"`     // display name from Chrome, e.g. "Work"
+	Username   string    `json:"username,omitempty"` // the profile's Google account, if signed in
+	LastSynced time.Time `json:"last_synced,omitzero"`
+}
+
+// ChromeConfig tracks which profile is in use and every profile that has been cached.
+type ChromeConfig struct {
+	Current  string                       `json:"current,omitempty"`  // profile folder name, e.g. "Profile 1"
+	Profiles map[string]ChromeProfileInfo `json:"profiles,omitempty"` // keyed by profile folder name
+}
 
 // Config holds the user's saved state (~/.footprints/config.json).
 type Config struct {
-	Schema        int    `json:"schema"`                   // layout version, see SchemaVersion
-	ChromeProfile string `json:"chrome_profile,omitempty"` // the current profile: `graph` reads its cached copy
+	Schema  int          `json:"schema"`            // layout version, see SchemaVersion
+	Version string       `json:"version,omitempty"` // last release that used this workspace (informational only)
+	Chrome  ChromeConfig `json:"chrome"`
 }
 
 // ConfigPath returns ~/.footprints/config.json
@@ -56,4 +71,23 @@ func writeConfig(c Config) error {
 		return err
 	}
 	return os.Rename(tmp, p)
+}
+
+// RecordSync marks a profile as the current one and records when its history was copied.
+// Call it after the History file has been copied successfully.
+func RecordSync(dir, name, username string, at time.Time) error {
+	if err := validProfile(dir); err != nil {
+		return err
+	}
+	cfg := LoadConfig()
+	cfg.Chrome.Current = dir
+	if cfg.Chrome.Profiles == nil {
+		cfg.Chrome.Profiles = map[string]ChromeProfileInfo{}
+	}
+	cfg.Chrome.Profiles[dir] = ChromeProfileInfo{
+		Name:       name,
+		Username:   username,
+		LastSynced: at.UTC().Truncate(time.Second),
+	}
+	return SaveConfig(cfg)
 }

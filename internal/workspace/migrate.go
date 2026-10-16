@@ -86,3 +86,21 @@ func Migrate() (string, error) {
 	return fmt.Sprintf("footprints: upgraded the workspace layout and removed the old cache (%s).\n"+
 		"Run `footprints init` to cache your history again.", strings.Join(removed, ", ")), nil
 }
+
+// RecordVersion notes which release last used this workspace. It's purely informational:
+// migrations are driven by Schema and never by this. It does nothing for dev builds, and it
+// waits until the workspace is on the current layout, so it can't mask a failed migration.
+func RecordVersion(v string) error {
+	if v == "" || v == "dev" {
+		return nil
+	}
+	if !strings.HasPrefix(v, "v") {
+		v = "v" + v // the build stamps "0.1.3"; tags look like "v0.1.3"
+	}
+	cfg := LoadConfig()
+	if cfg.Schema != SchemaVersion || cfg.Version == v {
+		return nil
+	}
+	cfg.Version = v
+	return SaveConfig(cfg)
+}

@@ -116,7 +116,7 @@ func ProfileHistoryPath(profile string) (string, error) {
 
 // CurrentProfile returns the profile saved in config.json (the one `init` chose last).
 func CurrentProfile() (string, error) {
-	p := LoadConfig().ChromeProfile
+	p := LoadConfig().Chrome.Current
 	if p == "" {
 		return "", ErrNoProfile
 	}

@@ -36,6 +36,8 @@ file and generates a local HTML page. Nothing is uploaded anywhere.`,
 		note, err := workspace.Migrate()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "warning:", err) // non-fatal: commands still work on the new layout
+		} else {
+			_ = workspace.RecordVersion(version)
 		}
 		if note != "" {
 			fmt.Fprintln(os.Stderr, note)

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -17,6 +19,7 @@ import (
 var (
 	initProfile string
 	initChoose  bool
+	initStatus  bool
 )
 
 var initCmd = &cobra.Command{
@@ -34,6 +37,9 @@ remembers your choice. Use --choose to pick again, or --profile to skip the ques
   footprints init --profile "Profile 1"
   footprints init --profile work@example.com`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if initStatus {
+			return printStatus()
+		}
 		profiles, err := chrome.List()
 		if err != nil {
 			return err
@@ -59,10 +65,8 @@ remembers your choice. Use --choose to pick again, or --profile to skip the ques
 			return fmt.Errorf("failed to copy history: %w", err)
 		}
 
-		// config.json is the dispatcher: without this, `graph` can't know which copy to read
-		cfg := workspace.LoadConfig()
-		cfg.ChromeProfile = p.Dir
-		if err := workspace.SaveConfig(cfg); err != nil {
+		// config.json is the dispatcher: this makes `graph` read this profile, and records the sync
+		if err := workspace.RecordSync(p.Dir, p.Name, p.Email, time.Now()); err != nil {
 			return fmt.Errorf("copied history, but couldn't save your profile choice: %w", err)
 		}
 
@@ -87,6 +91,7 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 	initCmd.Flags().StringVar(&initProfile, "profile", "", "Chrome profile to read: folder name (\"Profile 1\"), display name, or email")
 	initCmd.Flags().BoolVar(&initChoose, "choose", false, "Choose the Chrome profile again, ignoring the saved choice")
+	initCmd.Flags().BoolVar(&initStatus, "status", false, "Show cached Chrome profiles and when each was last synced, then exit")
 }
 
 func pickProfile(ps []chrome.Profile) (chrome.Profile, error) {
@@ -97,7 +102,7 @@ func pickProfile(ps []chrome.Profile) (chrome.Profile, error) {
 		return chrome.Profile{}, fmt.Errorf("no Chrome profile matches %q\n%s", initProfile, profileList(ps))
 	}
 	if !initChoose {
-		if saved := workspace.LoadConfig().ChromeProfile; saved != "" {
+		if saved := workspace.LoadConfig().Chrome.Current; saved != "" {
 			if p, ok := chrome.Resolve(ps, saved); ok {
 				return p, nil
 			}
@@ -194,4 +199,57 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return os.Rename(tmp, dst)
+}
+
+// printStatus lists every cached profile and when its history was last copied.
+func printStatus() error {
+	cfg := workspace.LoadConfig()
+	if len(cfg.Chrome.Profiles) == 0 {
+		fmt.Println("No Chrome history cached yet. Run `footprints init`.")
+		return nil
+	}
+	keys := make([]string, 0, len(cfg.Chrome.Profiles))
+	for k := range cfg.Chrome.Profiles {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	fmt.Println("Cached Chrome profiles (* = in use):")
+	for _, k := range keys {
+		i := cfg.Chrome.Profiles[k]
+		mark := " "
+		if k == cfg.Chrome.Current {
+			mark = "*"
+		}
+		who := k
+		if i.Name != "" && i.Name != k {
+			who += fmt.Sprintf("  %q", i.Name)
+		}
+		if i.Username != "" {
+			who += " <" + i.Username + ">"
+		}
+		synced := "never"
+		if !i.LastSynced.IsZero() {
+			synced = fmt.Sprintf("%s (%s)", i.LastSynced.Local().Format("2006-01-02 15:04"), ago(time.Since(i.LastSynced)))
+		}
+		fmt.Printf("  %s %s\n      last synced: %s\n", mark, who, synced)
+	}
+	fmt.Println("\nRefresh the current profile with `footprints init`, or switch with `footprints init --choose`.")
+	return nil
+}
+
+// ago renders a duration as a short, human-friendly age.
+func ago(d time.Duration) string {
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%d min ago", int(d.Minutes()))
+	case d < 2*time.Hour:
+		return "1 hour ago"
+	case d < 48*time.Hour:
+		return fmt.Sprintf("%d hours ago", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%d days ago", int(d.Hours()/24))
+	}
 }
