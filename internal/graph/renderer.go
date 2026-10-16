@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/MahendraDani/footprints/internal/history"
+	"github.com/MahendraDani/footprints/internal/workspace"
 )
 
 //go:embed index.html
@@ -121,15 +122,14 @@ func GenerateAndOpen(opts Options) error {
 	// Determine output path: default to ~/.footprints/templates/graph.html
 	outputPath := opts.OutputPath
 	if outputPath == "" || outputPath == "graph.html" {
-		home, err := os.UserHomeDir()
+		p, err := workspace.GraphPath() // ~/.footprints/chrome/<profile>/templates/graph.html
 		if err != nil {
-			return fmt.Errorf("failed to get user home dir: %w", err)
+			return err
 		}
-		templatesDir := filepath.Join(home, ".footprints", "templates")
-		if err := os.MkdirAll(templatesDir, 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			return fmt.Errorf("failed to create templates directory: %w", err)
 		}
-		outputPath = filepath.Join(templatesDir, "graph.html")
+		outputPath = p
 	}
 
 	absPath, err := filepath.Abs(outputPath)
