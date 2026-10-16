@@ -2,7 +2,10 @@
 
 > Explore personal browsing history through queries and interactive visualizations. The goal is to turn browser history from a collection of URLs into something we can explore, helping people understand their browsing patterns, revisit research trails, and discover connections between pages - chatgpt
 
-bullshit, I know that having History database is power, but I don't know how to use it yet and in which ways? this doc describes things I've figured out so far and I'd like to use myself.
+bullshit, I know that having access to History database is crazy, but I don't know how to use it yet and in which ways? this doc describes things I've figured out so far and I'd like to use myself.
+
+![footprints graph](./public/hero.png)
+yeah, it's a CLI but opens the result in browser, it's kinda weird (in cool ways obv)
 
 ## Install
 
