@@ -1,58 +1,3 @@
-// /*
-// Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-// */
-// package cmd
-
-// import (
-// 	"fmt"
-// 	"os"
-
-// 	"github.com/MahendraDani/footprints/internal/update"
-// 	"github.com/spf13/cobra"
-// )
-
-// // rootCmd represents the base command when called without any subcommands
-// var rootCmd = &cobra.Command{
-// 	Use:   "footprints",
-// 	Short: "A brief description of your application",
-// 	Long: `A longer description that spans multiple lines and likely contains
-// examples and usage of using your application. For example:
-
-// Cobra is a CLI library for Go that empowers applications.
-// This application is a tool to generate the needed files
-// to quickly create a Cobra application.`,
-// 	// Uncomment the following line if your bare application
-// 	// has an action associated with it:
-// 	// Run: func(cmd *cobra.Command, args []string) { },
-// }
-
-// // Execute adds all child commands to the root command and sets flags appropriately.
-// // This is called by main.main(). It only needs to happen once to the rootCmd.
-// func Execute() {
-// 	notice := update.Start(version, os.Args[1:])
-// 	err := rootCmd.Execute()
-// 	if msg := notice(); msg != "" {
-// 		fmt.Fprint(os.Stderr, msg)
-// 	}
-// 	if err != nil {
-// 		os.Exit(1)
-// 	}
-// }
-
-// func init() {
-// 	// Here you will define your flags and configuration settings.
-// 	// Cobra supports persistent flags, which, if defined here,
-// 	// will be global for your application.
-
-// 	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.footprints.yaml)")
-
-// 	// Cobra also supports local flags, which will only run
-// 	// when this action is called directly.
-// 	rootCmd.Version = version
-// 	rootCmd.SetVersionTemplate("{{.Name}} {{.Version}}\n")
-// 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-// }
-
 package cmd
 
 import (
@@ -60,6 +5,7 @@ import (
 	"os"
 
 	"github.com/MahendraDani/footprints/internal/update"
+	"github.com/MahendraDani/footprints/internal/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -79,6 +25,24 @@ file and generates a local HTML page. Nothing is uploaded anywhere.`,
   footprints graph --directed      # draw arrows from earlier to later visits
   footprints update                # upgrade to the latest release`,
 	SilenceUsage: true, // don't dump the help text when a command fails at runtime
+
+	// Upgrades ~/.footprints to the current layout before any real command runs.
+	// It's idempotent and costs one small file read once the workspace is current.
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		switch cmd.Name() {
+		case "help", "completion", "update", cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
+			return
+		}
+		note, err := workspace.Migrate()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "warning:", err) // non-fatal: commands still work on the new layout
+		} else {
+			_ = workspace.RecordVersion(version)
+		}
+		if note != "" {
+			fmt.Fprintln(os.Stderr, note)
+		}
+	},
 }
 
 func init() {

@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/MahendraDani/footprints/internal/graph"
+	"github.com/MahendraDani/footprints/internal/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -55,6 +57,14 @@ Run "footprints init" first to cache your Chrome history.`,
 		}
 		if opts.From != nil && opts.To != nil && !opts.From.Before(*opts.To) {
 			return fmt.Errorf("--from-date must be earlier than --to-date")
+		}
+
+		if p, err := workspace.CurrentProfile(); err == nil {
+			line := "Using Chrome profile " + p
+			if t := workspace.LoadConfig().Chrome.Profiles[p].LastSynced; !t.IsZero() {
+				line += ", history synced " + ago(time.Since(t))
+			}
+			fmt.Println(line + ". Refresh with `footprints init`.")
 		}
 
 		if graphLimit > 0 {
