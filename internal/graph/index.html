@@ -6,98 +6,429 @@
     <title>footprints · visit graph</title>
     <style>
       :root {
-        --bg: #1e1e1e; --panel: #262626; --line: #363636;
-        --fg: #dadada; --mut: #8a8a8a; --acc: #9488dd;
-        --mono: "JetBrains Mono", "Fira Code", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+        --bg: #1e1e1e;
+        --panel: #262626;
+        --line: #363636;
+        --fg: #dadada;
+        --mut: #8a8a8a;
+        --acc: #9488dd;
+        --mono:
+          "JetBrains Mono", "Fira Code", "SF Mono", ui-monospace, Menlo,
+          Consolas, monospace;
         color-scheme: dark;
       }
-      * { box-sizing: border-box; }
-      html, body {
-        height: 100%; margin: 0; background: var(--bg); color: var(--fg);
-        font: 12px/1.5 var(--mono); overflow: hidden;
+      * {
+        box-sizing: border-box;
       }
-      body { display: flex; flex-direction: column; }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 12px/1.5 var(--mono);
+        overflow: hidden;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+      }
       header {
-        display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center;
-        padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 20;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 18px;
+        align-items: center;
+        padding: 10px 16px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+        z-index: 20;
       }
-      .brand { font-weight: 700; color: var(--fg); }
-      .brand span { color: var(--mut); font-weight: 400; }
+      .brand {
+        font-weight: 700;
+        color: var(--fg);
+      }
+      .brand span {
+        color: var(--mut);
+        font-weight: 400;
+      }
+      input[type="search"],
+      input[type="date"],
+      input[type="number"],
+      select,
+      .hb {
+        padding: 5px 10px;
+        font: inherit;
+        color: var(--fg);
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        outline: none;
+      }
       input[type="search"] {
-        width: 230px; padding: 5px 10px; font: inherit; color: var(--fg);
-        background: var(--bg); border: 1px solid var(--line); border-radius: 6px; outline: none;
+        width: 230px;
       }
-      input[type="search"]:focus { border-color: var(--acc); }
-      label { display: flex; gap: 6px; align-items: center; color: var(--mut); cursor: pointer; user-select: none; }
-      input[type="checkbox"] { accent-color: var(--acc); cursor: pointer; }
-      kbd { font: inherit; font-size: 10px; padding: 0 4px; border: 1px solid var(--line); border-radius: 4px; color: var(--mut); }
-      #stats { margin-left: auto; color: var(--mut); }
+      input[type="search"]:focus,
+      input[type="date"]:focus,
+      input[type="number"]:focus,
+      select:focus {
+        border-color: var(--acc);
+      }
+      .hb {
+        cursor: pointer;
+      }
+      .hb:hover,
+      .hb:focus-visible {
+        border-color: var(--acc);
+      }
+      label {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        color: var(--mut);
+        cursor: pointer;
+        user-select: none;
+      }
+      input[type="checkbox"] {
+        accent-color: var(--acc);
+        cursor: pointer;
+      }
+      kbd {
+        font: inherit;
+        font-size: 10px;
+        padding: 0 4px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        color: var(--mut);
+      }
+      #stats {
+        margin-left: auto;
+        color: var(--mut);
+      }
 
-      main { flex: 1; min-height: 0; position: relative; overflow: hidden; background: var(--bg); }
-      canvas { display: block; width: 100%; height: 100%; }
+      main {
+        flex: 1;
+        min-height: 0;
+        position: relative;
+        overflow: hidden;
+        background: var(--bg);
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      #time {
+        position: absolute;
+        top: 12px;
+        left: 16px;
+        z-index: 35;
+        width: 340px;
+        display: none;
+        padding: 12px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      }
+      .tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+      .tab {
+        flex: 1;
+        padding: 4px 8px;
+        font: inherit;
+        color: var(--mut);
+        background: none;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .tab.on {
+        color: var(--fg);
+        border-color: var(--acc);
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 8px 0;
+        flex-wrap: wrap;
+      }
+      .row .k {
+        width: 40px;
+        color: var(--mut);
+      }
+      .pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 6px 0 10px;
+      }
+      .pill {
+        padding: 2px 10px;
+        font: inherit;
+        color: var(--mut);
+        background: none;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        cursor: pointer;
+      }
+      .pill:hover {
+        color: var(--fg);
+      }
+      .pill.on {
+        color: var(--fg);
+        border-color: var(--acc);
+      }
+      .go,
+      .ghost {
+        padding: 4px 12px;
+        font: inherit;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .go {
+        color: var(--fg);
+        background: none;
+        border: 1px solid var(--acc);
+      }
+      .go:hover {
+        background: rgba(148, 136, 221, 0.15);
+      }
+      .ghost {
+        color: var(--mut);
+        background: none;
+        border: 1px solid var(--line);
+      }
+      .ghost:hover {
+        color: var(--fg);
+      }
+      .hint {
+        margin-top: 8px;
+        color: var(--mut);
+        font-size: 11px;
+      }
+      .err {
+        color: #d9a3a3;
+      }
+      .sub {
+        color: var(--mut);
+      }
+
+      #empty {
+        position: absolute;
+        inset: 0;
+        display: none;
+        padding-top: 28vh;
+        text-align: center;
+        color: var(--mut);
+        pointer-events: none;
+      }
 
       #tip {
-        position: absolute; display: none; width: 320px; padding: 12px 14px; z-index: 30;
-        background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+        position: absolute;
+        display: none;
+        width: 320px;
+        padding: 12px 14px;
+        z-index: 30;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
       }
       #tip .t {
-        font-size: 13px; font-weight: 600; padding-right: 18px; word-break: break-word;
-        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        font-size: 13px;
+        font-weight: 600;
+        padding-right: 18px;
+        word-break: break-word;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
       }
       #tip .u {
-        margin: 4px 0 10px; font-size: 11px; color: var(--acc);
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        margin: 4px 0 10px;
+        font-size: 11px;
+        color: var(--acc);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       #tip .footer {
-        display: flex; justify-content: space-between; align-items: center; gap: 12px;
-        padding-top: 8px; border-top: 1px solid var(--line); font-size: 11px; color: var(--mut);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding-top: 8px;
+        border-top: 1px solid var(--line);
+        font-size: 11px;
+        color: var(--mut);
       }
-      #tip .footer span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #tip .footer span {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       #tip a {
-        padding: 2px 10px; border: 1px solid var(--line); border-radius: 6px;
-        color: var(--fg); text-decoration: none; white-space: nowrap;
+        padding: 2px 10px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        color: var(--fg);
+        text-decoration: none;
+        white-space: nowrap;
       }
-      #tip a:hover { border-color: var(--acc); color: var(--acc); }
+      #tip a:hover {
+        border-color: var(--acc);
+        color: var(--acc);
+      }
       #tip .x {
-        position: absolute; top: 6px; right: 8px; padding: 0 4px; background: none; border: 0;
-        color: var(--mut); cursor: pointer; font: inherit; font-size: 16px; line-height: 1;
+        position: absolute;
+        top: 6px;
+        right: 8px;
+        padding: 0 4px;
+        background: none;
+        border: 0;
+        color: var(--mut);
+        cursor: pointer;
+        font: inherit;
+        font-size: 16px;
+        line-height: 1;
       }
-      #tip .x:hover { color: var(--fg); }
+      #tip .x:hover {
+        color: var(--fg);
+      }
 
       #warn {
-        position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: none; z-index: 25;
-        max-width: min(640px, calc(100% - 32px)); padding: 8px 12px;
-        background: #2b1f1f; border: 1px solid #5c3a3a; color: #d9a3a3; border-radius: 6px;
+        position: absolute;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: none;
+        z-index: 25;
+        max-width: min(640px, calc(100% - 32px));
+        padding: 8px 12px;
+        background: #2b1f1f;
+        border: 1px solid #5c3a3a;
+        color: #d9a3a3;
+        border-radius: 6px;
       }
       #legend {
-        position: absolute; left: 16px; bottom: 16px; z-index: 10; max-width: min(560px, calc(100% - 32px));
-        display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 6px 8px;
-        background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--mut);
+        position: absolute;
+        left: 16px;
+        bottom: 16px;
+        z-index: 10;
+        max-width: min(560px, calc(100% - 32px));
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 6px;
+        padding: 6px 8px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--mut);
       }
-      #legend .note { padding: 0 6px; }
+      #legend .note {
+        padding: 0 6px;
+      }
       .chip {
-        display: flex; align-items: center; gap: 6px; padding: 2px 8px; font: inherit; color: var(--mut);
-        background: none; border: 1px solid transparent; border-radius: 6px; cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 8px;
+        font: inherit;
+        color: var(--mut);
+        background: none;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        cursor: pointer;
       }
-      .chip:hover { border-color: var(--line); color: var(--fg); }
-      .chip i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-      .chip.off { opacity: 0.45; text-decoration: line-through; }
-      .chip.off i { background: transparent !important; box-shadow: inset 0 0 0 1px var(--mut); }
-      .chip.all { color: var(--acc); }
+      .chip:hover {
+        border-color: var(--line);
+        color: var(--fg);
+      }
+      .chip i {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .chip.off {
+        opacity: 0.45;
+        text-decoration: line-through;
+      }
+      .chip.off i {
+        background: transparent !important;
+        box-shadow: inset 0 0 0 1px var(--mut);
+      }
+      .chip.all {
+        color: var(--acc);
+      }
     </style>
   </head>
   <body>
     <header>
       <div class="brand">footprints <span>~/graph</span></div>
       <input id="q" type="search" placeholder="filter url or title  ( / )" />
+      <button id="timeBtn" class="hb" title="time range (t)">
+        time: all time
+      </button>
       <label><input id="dir" type="checkbox" /> directed <kbd>d</kbd></label>
-      <label><input id="labels" type="checkbox" checked /> labels <kbd>l</kbd></label>
+      <label
+        ><input id="labels" type="checkbox" checked /> labels
+        <kbd>l</kbd></label
+      >
       <label><input id="single" type="checkbox" /> unlinked <kbd>u</kbd></label>
       <span id="stats"></span>
     </header>
     <main id="main">
       <canvas id="c"></canvas>
+      <div id="empty">No visits in this time range.</div>
+      <div id="time" role="dialog" aria-label="Time range">
+        <div class="tabs">
+          <button class="tab" data-tab="abs">absolute</button>
+          <button class="tab" data-tab="rel">relative</button>
+        </div>
+        <div id="pane-abs">
+          <div class="row">
+            <span class="k">from</span><input id="tf" type="date" />
+          </div>
+          <div class="row">
+            <span class="k">to</span><input id="tt" type="date" />
+          </div>
+          <div class="row">
+            <button id="absGo" class="go">apply</button
+            ><button id="absAll" class="ghost">all time</button>
+          </div>
+        </div>
+        <div id="pane-rel">
+          <div class="sub">from</div>
+          <div class="pills" id="pills"></div>
+          <div class="row">
+            <input
+              id="cn"
+              type="number"
+              min="1"
+              value="2"
+              style="width: 64px"
+            />
+            <select id="cu">
+              <option value="hour">hours</option>
+              <option value="day" selected>days</option>
+              <option value="week">weeks</option>
+              <option value="month">months</option>
+            </select>
+            <button id="relGo" class="go">apply</button>
+          </div>
+          <div class="sub">to: your latest visit <span id="latest"></span></div>
+        </div>
+        <div id="terr" class="err"></div>
+        <div id="tinfo" class="hint"></div>
+      </div>
       <div id="tip"></div>
       <div id="warn"></div>
       <div id="legend"></div>
@@ -106,20 +437,52 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
     <script>
       const $ = (id) => document.getElementById(id);
-      const warn = (m) => { const w = $("warn"); w.textContent = m; w.style.display = "block"; };
+      const warn = (m) => {
+        const w = $("warn");
+        w.textContent = m;
+        w.style.display = "block";
+      };
 
       try {
         const CFG = __CONFIG__;
         const RAW = __DATA__;
-        const rows = (Array.isArray(RAW) ? RAW : []).filter((r) => r && r.id != null);
+        const rows = (Array.isArray(RAW) ? RAW : []).filter(
+          (r) => r && r.id != null,
+        );
         if (!rows.length) warn("No visits to show.");
 
-        const TR = { 0: "Link", 1: "Typed", 2: "Bookmark", 3: "Subframe", 4: "Manual subframe", 5: "Generated",
-                     6: "Auto top-level", 7: "Form submit", 8: "Reload", 9: "Keyword", 10: "Keyword generated" };
-        const COL = { 0: "#7f8fb8", 1: "#b98aa8", 2: "#c4a46a", 3: "#6b6b6b", 4: "#858585", 5: "#9a86c7",
-                      6: "#c28c68", 7: "#8fae7a", 8: "#b8706e", 9: "#6fa8a0", 10: "#b583b0" };
-        const ACC = "#9488dd", BG = "#1e1e1e", FG = "#dadada";
-        const MONO = getComputedStyle(document.documentElement).getPropertyValue("--mono").trim();
+        const TR = {
+          0: "Link",
+          1: "Typed",
+          2: "Bookmark",
+          3: "Subframe",
+          4: "Manual subframe",
+          5: "Generated",
+          6: "Auto top-level",
+          7: "Form submit",
+          8: "Reload",
+          9: "Keyword",
+          10: "Keyword generated",
+        };
+        const COL = {
+          0: "#7f8fb8",
+          1: "#b98aa8",
+          2: "#c4a46a",
+          3: "#6b6b6b",
+          4: "#858585",
+          5: "#9a86c7",
+          6: "#c28c68",
+          7: "#8fae7a",
+          8: "#b8706e",
+          9: "#6fa8a0",
+          10: "#b583b0",
+        };
+        const ACC = "#9488dd",
+          BG = "#1e1e1e",
+          FG = "#dadada";
+        const MONO = getComputedStyle(document.documentElement)
+          .getPropertyValue("--mono")
+          .trim();
         const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
         // ---- Labels: host by default, host + first path segment for highlighted nodes ----
@@ -128,82 +491,173 @@
           try {
             const x = new URL(u);
             if (!/^https?:$/.test(x.protocol)) {
-              const l = clip(x.protocol + "//" + (x.host || x.pathname.split("/").filter(Boolean).pop() || ""), 28);
+              const l = clip(
+                x.protocol +
+                  "//" +
+                  (x.host || x.pathname.split("/").filter(Boolean).pop() || ""),
+                28,
+              );
               return [l, l];
             }
             const host = x.host.replace(/^www\./, "");
             const seg = x.pathname.split("/")[1];
             return [clip(host, 28), clip(seg ? host + "/" + seg : host, 34)];
-          } catch { const l = clip(String(u || ""), 24); return [l, l]; }
+          } catch {
+            const l = clip(String(u || ""), 24);
+            return [l, l];
+          }
         }
         const fmtDur = (s) => {
           if (!s || s < 1) return "< 1s";
           if (s < 60) return s.toFixed(1) + "s";
           const m = Math.floor(s / 60);
-          return m < 60 ? `${m}m ${Math.round(s % 60)}s` : `${Math.floor(m / 60)}h ${m % 60}m`;
+          return m < 60
+            ? `${m}m ${Math.round(s % 60)}s`
+            : `${Math.floor(m / 60)}h ${m % 60}m`;
         };
         const openable = (u) => /^https?:\/\//i.test(u);
 
         // ---- Graph data ----
-        const byId = new Map(rows.map((r) => [r.id, {
-          id: r.id, from: r.from_visit || 0, url: r.url || "", title: r.title || "",
-          tr: r.core_transition ?? 0, sec: +r.seconds_on_page || 0, at: r.visited_at || "", deg: 0,
-        }]));
-        const links = [], par = new Map(), kids = new Map(), adj = new Map();
-        const addAdj = (a, b) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a).add(b); };
+        const tsOf = (r) => {
+          if (Number.isFinite(+r.visit_ts) && +r.visit_ts > 0)
+            return +r.visit_ts;
+          const t = Date.parse(String(r.visited_at || "").replace(" ", "T"));
+          return Number.isFinite(t) ? t : 0;
+        };
+        const byId = new Map(
+          rows.map((r) => [
+            r.id,
+            {
+              id: r.id,
+              from: r.from_visit || 0,
+              url: r.url || "",
+              title: r.title || "",
+              tr: r.core_transition ?? 0,
+              sec: +r.seconds_on_page || 0,
+              at: r.visited_at || "",
+              ts: tsOf(r),
+              deg: 0,
+            },
+          ]),
+        );
+        const links = [],
+          par = new Map(),
+          kids = new Map(),
+          adj = new Map();
+        const addAdj = (a, b) => {
+          if (!adj.has(a)) adj.set(a, new Set());
+          adj.get(a).add(b);
+        };
         byId.forEach((n) => {
           const p = byId.get(n.from);
           if (p && p !== n) {
-            links.push({ s: p.id, t: n.id }); p.deg++; n.deg++;
+            links.push({ s: p.id, t: n.id });
             par.set(n.id, p.id);
             if (!kids.has(p.id)) kids.set(p.id, []);
             kids.get(p.id).push(n.id);
-            addAdj(p.id, n.id); addAdj(n.id, p.id);
+            addAdj(p.id, n.id);
+            addAdj(n.id, p.id);
           }
         });
         const nodes = [...byId.values()];
         nodes.forEach((n) => {
           n.r = 4 + Math.min(10, Math.sqrt(n.sec / 10)); // size = time on page
           [n.l1, n.l2] = labels(n.url);
-          n.p = n.deg * 1000 + n.sec; // label priority: hubs and long visits win
         });
+        const stamps = nodes.map((n) => n.ts).filter((t) => t > 0);
+        const minTs = stamps.length ? Math.min(...stamps) : 0;
+        const maxTs = stamps.length ? Math.max(...stamps) : 0;
 
         // ---- Modes and filters ----
         let dirOn = !!CFG.directed;
         $("dir").checked = dirOn;
-        const allTypes = [...new Set(nodes.map((n) => n.tr))].sort((a, b) => a - b);
+        const allTypes = [...new Set(nodes.map((n) => n.tr))].sort(
+          (a, b) => a - b,
+        );
         const typeOn = new Set(allTypes);
         const vis = (n) => typeOn.has(n.tr);
 
+        // Time range. mode: "all" | "abs" | "rel". "to" is exclusive; relative ranges end at the latest visit.
+        let tf = { mode: "all", from: null, to: null, label: "" };
+        if (CFG.from != null || CFG.to != null)
+          tf = {
+            mode: "abs",
+            from: CFG.from ?? null,
+            to: CFG.to ?? null,
+            label: "",
+          };
+        const inRange = (n) =>
+          (tf.from == null || n.ts >= tf.from) &&
+          (tf.to == null || n.ts < tf.to);
+
         // ---- Canvas + zoom ----
-        const canvas = $("c"), ctx = canvas.getContext("2d"), main = $("main");
-        let W = 0, H = 0, dpr = 1, T = d3.zoomIdentity, dirty = true, anim = false, userMoved = false;
+        const canvas = $("c"),
+          ctx = canvas.getContext("2d"),
+          main = $("main");
+        let W = 0,
+          H = 0,
+          dpr = 1,
+          T = d3.zoomIdentity,
+          dirty = true,
+          anim = false,
+          userMoved = false;
         function resize() {
           dpr = window.devicePixelRatio || 1;
-          W = main.clientWidth; H = main.clientHeight;
-          canvas.width = W * dpr; canvas.height = H * dpr;
+          W = main.clientWidth;
+          H = main.clientHeight;
+          canvas.width = W * dpr;
+          canvas.height = H * dpr;
           dirty = true;
         }
-        const zoom = d3.zoom().scaleExtent([0.05, 8]).on("zoom", (e) => {
-          T = e.transform; dirty = true;
-          if (e.sourceEvent) userMoved = true;
-        });
+        const zoom = d3
+          .zoom()
+          .scaleExtent([0.05, 8])
+          .on("zoom", (e) => {
+            T = e.transform;
+            dirty = true;
+            if (e.sourceEvent) userMoved = true;
+          });
 
         // ---- State ----
-        let sim, simNodes = [], simIds = new Set(), L = [], byPrio = [], hidden = 0;
-        let sel = null, hoveredId = null, activeId = null, S = null, SL = null, M = null;
+        let sim,
+          simNodes = [],
+          simIds = new Set(),
+          L = [],
+          byPrio = [],
+          hidden = 0,
+          outside = 0;
+        let sel = null,
+          hoveredId = null,
+          activeId = null,
+          S = null,
+          SL = null,
+          M = null;
         const on = (n) => vis(n) && (!M || M.has(n.id)) && (!S || S.has(n.id));
         const ok = (id) => simIds.has(id) && vis(byId.get(id));
 
         // Undirected: everything connected, however far. Directed: the path that led here + everything it led to.
         function reach(id) {
-          const s = new Set([id]), st = [id];
+          const s = new Set([id]),
+            st = [id];
           if (!dirOn) {
-            while (st.length) for (const m of adj.get(st.pop()) || []) if (!s.has(m) && ok(m)) { s.add(m); st.push(m); }
+            while (st.length)
+              for (const m of adj.get(st.pop()) || [])
+                if (!s.has(m) && ok(m)) {
+                  s.add(m);
+                  st.push(m);
+                }
           } else {
             let p = par.get(id);
-            while (p != null && !s.has(p) && ok(p)) { s.add(p); p = par.get(p); }
-            while (st.length) for (const k of kids.get(st.pop()) || []) if (!s.has(k) && ok(k)) { s.add(k); st.push(k); }
+            while (p != null && !s.has(p) && ok(p)) {
+              s.add(p);
+              p = par.get(p);
+            }
+            while (st.length)
+              for (const k of kids.get(st.pop()) || [])
+                if (!s.has(k) && ok(k)) {
+                  s.add(k);
+                  st.push(k);
+                }
           }
           return s;
         }
@@ -211,119 +665,242 @@
           const q = $("q").value.trim().toLowerCase();
           activeId = hoveredId ?? sel;
           S = activeId == null ? null : reach(activeId);
-          SL = S && [...S].map((id) => byId.get(id))
-            .sort((a, b) => (b.id === activeId) - (a.id === activeId) || b.p - a.p);
-          M = q ? new Set(simNodes.filter((n) => (n.url + " " + n.title).toLowerCase().includes(q)).map((n) => n.id)) : null;
+          SL =
+            S &&
+            [...S]
+              .map((id) => byId.get(id))
+              .sort(
+                (a, b) =>
+                  (b.id === activeId) - (a.id === activeId) || b.p - a.p,
+              );
+          M = q
+            ? new Set(
+                simNodes
+                  .filter((n) =>
+                    (n.url + " " + n.title).toLowerCase().includes(q),
+                  )
+                  .map((n) => n.id),
+              )
+            : null;
           dirty = true;
         }
         function updateStats() {
-          const vn = simNodes.filter(vis).length, vl = L.filter((l) => vis(l.source) && vis(l.target)).length;
-          $("stats").textContent = `${vn.toLocaleString()} visits · ${vl.toLocaleString()} links` +
-            (hidden ? ` · ${hidden.toLocaleString()} unlinked hidden` : "");
+          const vn = simNodes.filter(vis).length,
+            vl = L.filter((l) => vis(l.source) && vis(l.target)).length;
+          $("stats").textContent =
+            `${vn.toLocaleString()} visits · ${vl.toLocaleString()} links` +
+            (hidden ? ` · ${hidden.toLocaleString()} unlinked hidden` : "") +
+            (outside ? ` · ${outside.toLocaleString()} outside range` : "");
+          $("empty").style.display = vn ? "none" : "block";
         }
 
         // ---- Legend: clickable transition-type filters ----
         const chips = new Map();
-        function refreshChips() { chips.forEach((b, t) => b.classList.toggle("off", !typeOn.has(t))); }
+        function refreshChips() {
+          chips.forEach((b, t) => b.classList.toggle("off", !typeOn.has(t)));
+        }
         function typesChanged() {
           refreshChips();
           if (hoveredId != null && !ok(hoveredId)) hoveredId = null;
           if (sel != null && !ok(sel)) sel = null;
-          recompute(); syncCard(); updateStats();
+          recompute();
+          syncCard();
+          updateStats();
         }
         function renderLegend() {
-          const cnt = d3.rollup(simNodes, (v) => v.length, (n) => n.tr);
-          const el = $("legend"); el.replaceChildren(); chips.clear();
+          const cnt = d3.rollup(
+            simNodes,
+            (v) => v.length,
+            (n) => n.tr,
+          );
+          const el = $("legend");
+          el.replaceChildren();
+          chips.clear();
           for (const t of [...cnt.keys()].sort((a, b) => a - b)) {
-            const b = document.createElement("button"); b.className = "chip";
+            const b = document.createElement("button");
+            b.className = "chip";
             b.title = "click: show/hide · double-click: show only this";
-            const i = document.createElement("i"); i.style.background = COL[t] || "#858585";
+            const i = document.createElement("i");
+            i.style.background = COL[t] || "#858585";
             b.append(i, `${TR[t] ?? t} ${cnt.get(t).toLocaleString()}`);
-            b.onclick = () => { typeOn.has(t) ? typeOn.delete(t) : typeOn.add(t); typesChanged(); };
-            b.ondblclick = () => { typeOn.clear(); typeOn.add(t); typesChanged(); };
-            chips.set(t, b); el.append(b);
+            b.onclick = () => {
+              typeOn.has(t) ? typeOn.delete(t) : typeOn.add(t);
+              typesChanged();
+            };
+            b.ondblclick = () => {
+              typeOn.clear();
+              typeOn.add(t);
+              typesChanged();
+            };
+            chips.set(t, b);
+            el.append(b);
           }
-          const all = document.createElement("button"); all.className = "chip all"; all.textContent = "all";
-          all.onclick = () => { allTypes.forEach((t) => typeOn.add(t)); typesChanged(); };
-          const note = document.createElement("span"); note.className = "note"; note.textContent = "size = time on page";
-          el.append(all, note); refreshChips();
+          const all = document.createElement("button");
+          all.className = "chip all";
+          all.textContent = "all";
+          all.onclick = () => {
+            allTypes.forEach((t) => typeOn.add(t));
+            typesChanged();
+          };
+          const note = document.createElement("span");
+          note.className = "note";
+          note.textContent = "size = time on page";
+          el.append(all, note);
+          refreshChips();
         }
 
         // ---- Layout: warm up before the first paint, then relax live ----
-        function fit() {
-          if (!simNodes.length) return;
-          const xs = simNodes.map((n) => n.x).sort(d3.ascending), ys = simNodes.map((n) => n.y).sort(d3.ascending);
-          const x0 = d3.quantile(xs, 0.02), x1 = d3.quantile(xs, 0.98);
-          const y0 = d3.quantile(ys, 0.02), y1 = d3.quantile(ys, 0.98), pad = 70;
-          const k = Math.max(0.05, Math.min(2, (W - 2 * pad) / Math.max(1, x1 - x0), (H - 2 * pad) / Math.max(1, y1 - y0)));
-          d3.select(canvas).call(zoom.transform,
-            d3.zoomIdentity.translate(W / 2 - (k * (x0 + x1)) / 2, H / 2 - (k * (y0 + y1)) / 2).scale(k));
+        function fit(animate) {
+          const vs = simNodes.filter(vis),
+            pts = vs.length ? vs : simNodes;
+          if (!pts.length) return;
+          const xs = pts.map((n) => n.x).sort(d3.ascending),
+            ys = pts.map((n) => n.y).sort(d3.ascending);
+          const x0 = d3.quantile(xs, 0.02),
+            x1 = d3.quantile(xs, 0.98);
+          const y0 = d3.quantile(ys, 0.02),
+            y1 = d3.quantile(ys, 0.98),
+            pad = 70;
+          const k = Math.max(
+            0.05,
+            Math.min(
+              2,
+              (W - 2 * pad) / Math.max(1, x1 - x0),
+              (H - 2 * pad) / Math.max(1, y1 - y0),
+            ),
+          );
+          const t = d3.zoomIdentity
+            .translate(W / 2 - (k * (x0 + x1)) / 2, H / 2 - (k * (y0 + y1)) / 2)
+            .scale(k);
+          const s = d3.select(canvas);
+          (animate ? s.transition().duration(350) : s).call(zoom.transform, t);
         }
+        // Rebuilds the graph from the nodes inside the time range. Links to visits outside it are dropped.
         function build() {
           if (sim) sim.stop();
           const showAll = $("single").checked;
-          simNodes = nodes.filter((n) => showAll || n.deg > 0);
+          const inr = nodes.filter(inRange);
+          const inSet = new Set(inr.map((n) => n.id));
+          nodes.forEach((n) => {
+            n.deg = 0;
+            n.vx = n.vy = 0;
+            n.fx = n.fy = null;
+          });
+          const rl = [];
+          for (const l of links) {
+            if (inSet.has(l.s) && inSet.has(l.t)) {
+              rl.push(l);
+              byId.get(l.s).deg++;
+              byId.get(l.t).deg++;
+            }
+          }
+          simNodes = inr.filter((n) => showAll || n.deg > 0);
+          simNodes.forEach((n) => {
+            n.p = n.deg * 1000 + n.sec;
+          }); // label priority: hubs and long visits win
           simIds = new Set(simNodes.map((n) => n.id));
-          hidden = nodes.length - simNodes.length;
+          hidden = inr.length - simNodes.length;
+          outside = nodes.length - inr.length;
           byPrio = [...simNodes].sort((a, b) => b.p - a.p);
           if (sel != null && !simIds.has(sel)) sel = null;
           hoveredId = null;
-          L = links.map((l) => ({ source: l.s, target: l.t }));
+          L = rl.map((l) => ({ source: l.s, target: l.t }));
 
-          sim = d3.forceSimulation(simNodes).alphaDecay(0.04).velocityDecay(0.4)
-            .force("link", d3.forceLink(L).id((d) => d.id).distance(60).strength(0.7))
+          sim = d3
+            .forceSimulation(simNodes)
+            .alphaDecay(0.04)
+            .velocityDecay(0.4)
+            .force(
+              "link",
+              d3
+                .forceLink(L)
+                .id((d) => d.id)
+                .distance(60)
+                .strength(0.7),
+            )
             .force("charge", d3.forceManyBody().strength(-130).distanceMax(500))
-            .force("x", d3.forceX(0).strength(0.012)).force("y", d3.forceY(0).strength(0.012))
-            .force("collide", d3.forceCollide((d) => d.r + 3))
+            .force("x", d3.forceX(0).strength(0.012))
+            .force("y", d3.forceY(0).strength(0.012))
+            .force(
+              "collide",
+              d3.forceCollide((d) => d.r + 3),
+            )
             .stop();
           for (let i = 0; i < 80; i++) sim.tick();
           fit();
-          sim.on("tick", () => { dirty = true; })
-             .on("end", () => { if (!userMoved) fit(); })
-             .alpha(0.5).restart();
+          sim
+            .on("tick", () => {
+              dirty = true;
+            })
+            .on("end", () => {
+              if (!userMoved) fit();
+            })
+            .alpha(0.5)
+            .restart();
 
-          renderLegend(); updateStats();
-          recompute(); syncCard();
+          renderLegend();
+          updateStats();
+          recompute();
+          syncCard();
         }
 
         // ---- Drawing ----
         const TAU = Math.PI * 2;
-        function arrow(path, l, size, k) { // triangle at the target's edge, pointing along source -> target
-          const dx = l.target.x - l.source.x, dy = l.target.y - l.source.y, len = Math.hypot(dx, dy);
+        function arrow(path, l, size, k) {
+          // triangle at the target's edge, pointing along source -> target
+          const dx = l.target.x - l.source.x,
+            dy = l.target.y - l.source.y,
+            len = Math.hypot(dx, dy);
           const gap = l.target.r + 1.5 / k;
           if (len < gap + size * 1.6) return;
-          const ux = dx / len, uy = dy / len, bx = l.target.x - ux * gap, by = l.target.y - uy * gap, w = size * 0.45;
+          const ux = dx / len,
+            uy = dy / len,
+            bx = l.target.x - ux * gap,
+            by = l.target.y - uy * gap,
+            w = size * 0.45;
           path.moveTo(bx, by);
           path.lineTo(bx - ux * size + uy * w, by - uy * size - ux * w);
           path.lineTo(bx - ux * size - uy * w, by - uy * size + ux * w);
           path.closePath();
         }
         function draw(t) {
-          const k = T.k, size = Math.min(7 / k, 14);
+          const k = T.k,
+            size = Math.min(7 / k, 14);
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
           ctx.clearRect(0, 0, W, H);
           ctx.save();
-          ctx.translate(T.x, T.y); ctx.scale(k, k);
+          ctx.translate(T.x, T.y);
+          ctx.scale(k, k);
 
-          const cold = new Path2D(), coldH = new Path2D(), hot = new Path2D(), hotH = new Path2D();
+          const cold = new Path2D(),
+            coldH = new Path2D(),
+            hot = new Path2D(),
+            hotH = new Path2D();
           let nHot = 0;
           for (const l of L) {
-            const a = l.source, b = l.target;
+            const a = l.source,
+              b = l.target;
             if (!vis(a) || !vis(b)) continue;
             const isHot = S && S.has(a.id) && S.has(b.id);
             const p = isHot ? hot : cold;
-            p.moveTo(a.x, a.y); p.lineTo(b.x, b.y);
+            p.moveTo(a.x, a.y);
+            p.lineTo(b.x, b.y);
             if (isHot) nHot++;
             if (dirOn) arrow(isHot ? hotH : coldH, l, size, k);
           }
-          ctx.lineWidth = 1 / k; ctx.strokeStyle = "#555"; ctx.fillStyle = "#666";
+          ctx.lineWidth = 1 / k;
+          ctx.strokeStyle = "#555";
+          ctx.fillStyle = "#666";
           ctx.globalAlpha = S ? 0.05 : M ? 0.12 : 0.5;
           ctx.stroke(cold);
           if (dirOn) ctx.fill(coldH);
 
           anim = dirOn && nHot > 0 && nHot < 600 && !calm; // flowing dashes only make sense when direction matters
           if (nHot) {
-            ctx.globalAlpha = 0.9; ctx.strokeStyle = ACC; ctx.fillStyle = ACC; ctx.lineWidth = 1.8 / k;
+            ctx.globalAlpha = 0.9;
+            ctx.strokeStyle = ACC;
+            ctx.fillStyle = ACC;
+            ctx.lineWidth = 1.8 / k;
             ctx.setLineDash([7 / k, 5 / k]);
             ctx.lineDashOffset = anim ? (-(t || 0) * 0.03) / k : 0;
             ctx.stroke(hot);
@@ -331,22 +908,32 @@
             if (dirOn) ctx.fill(hotH);
           }
 
-          for (const pass of [false, true]) { // dimmed nodes first, lit nodes on top
+          for (const pass of [false, true]) {
+            // dimmed nodes first, lit nodes on top
             for (const n of simNodes) {
               if (!vis(n)) continue;
               const o = on(n);
               if (o !== pass) continue;
               ctx.globalAlpha = o ? 1 : 0.12;
               ctx.fillStyle = COL[n.tr] || "#858585";
-              ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, TAU); ctx.fill();
+              ctx.beginPath();
+              ctx.arc(n.x, n.y, n.r, 0, TAU);
+              ctx.fill();
             }
           }
           ctx.globalAlpha = 1;
-          for (const [id, color] of [[sel, FG], [hoveredId, ACC]]) { // selected = light ring, hovered = accent ring
+          for (const [id, color] of [
+            [sel, FG],
+            [hoveredId, ACC],
+          ]) {
+            // selected = light ring, hovered = accent ring
             const n = id != null && byId.get(id);
             if (!n || n.x === undefined || !simIds.has(id) || !vis(n)) continue;
-            ctx.lineWidth = 2 / k; ctx.strokeStyle = color;
-            ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 2 / k, 0, TAU); ctx.stroke();
+            ctx.lineWidth = 2 / k;
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.r + 2 / k, 0, TAU);
+            ctx.stroke();
           }
           ctx.restore();
 
@@ -356,118 +943,374 @@
         }
 
         function drawLabels() {
-          ctx.font = "11px " + MONO; ctx.textAlign = "center"; ctx.textBaseline = "top";
-          ctx.lineJoin = "round"; ctx.lineWidth = 3; ctx.strokeStyle = BG;
-          const detail = !!(S || M), key = detail ? "w2" : "w1", boxes = [];
+          ctx.font = "11px " + MONO;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          ctx.lineJoin = "round";
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = BG;
+          const detail = !!(S || M),
+            key = detail ? "w2" : "w1",
+            boxes = [];
           let tries = 0;
           for (const n of SL || byPrio) {
             if (!on(n)) continue;
-            const x = T.applyX(n.x), y = T.applyY(n.y) + Math.max(2, n.r * T.k) + 3;
+            const x = T.applyX(n.x),
+              y = T.applyY(n.y) + Math.max(2, n.r * T.k) + 3;
             if (x < -80 || x > W + 80 || y < -20 || y > H + 20) continue;
             if (++tries > 1500 || boxes.length > 260) break;
             const txt = detail ? n.l2 : n.l1;
             if (n[key] === undefined) n[key] = ctx.measureText(txt).width;
-            const x0 = x - n[key] / 2 - 4, x1 = x0 + n[key] + 8, y1 = y + 15;
+            const x0 = x - n[key] / 2 - 4,
+              x1 = x0 + n[key] + 8,
+              y1 = y + 15;
             let hit = false;
-            for (const b of boxes) if (x0 < b[2] && x1 > b[0] && y < b[3] && y1 > b[1]) { hit = true; break; }
+            for (const b of boxes)
+              if (x0 < b[2] && x1 > b[0] && y < b[3] && y1 > b[1]) {
+                hit = true;
+                break;
+              }
             if (hit) continue;
             boxes.push([x0, y, x1, y1]);
             ctx.fillStyle = n.id === activeId ? FG : "#9a9a9a";
-            ctx.strokeText(txt, x, y); ctx.fillText(txt, x, y);
+            ctx.strokeText(txt, x, y);
+            ctx.fillText(txt, x, y);
           }
         }
         function frame(t) {
-          if (dirty || anim) { dirty = false; draw(t); }
+          if (dirty || anim) {
+            dirty = false;
+            draw(t);
+          }
           requestAnimationFrame(frame);
         }
 
         // ---- Details card (opens on click, follows its node) ----
         const tip = $("tip");
-        let cardFor = null, cw = 320, ch = 0;
+        let cardFor = null,
+          cw = 320,
+          ch = 0;
         function syncCard() {
-          if (sel == null || !ok(sel)) { tip.style.display = "none"; cardFor = null; return; }
+          if (sel == null || !ok(sel)) {
+            tip.style.display = "none";
+            cardFor = null;
+            return;
+          }
           if (cardFor === sel) return;
           const n = byId.get(sel);
           tip.replaceChildren();
-          const x = document.createElement("button"); x.className = "x"; x.textContent = "×"; x.title = "close (Esc)";
-          x.onclick = () => { sel = null; recompute(); syncCard(); };
-          const title = document.createElement("div"); title.className = "t"; title.textContent = n.title || "(no title)";
-          const url = document.createElement("div"); url.className = "u"; url.textContent = n.url; url.title = n.url;
+          const x = document.createElement("button");
+          x.className = "x";
+          x.textContent = "×";
+          x.title = "close (Esc)";
+          x.onclick = () => {
+            sel = null;
+            recompute();
+            syncCard();
+          };
+          const title = document.createElement("div");
+          title.className = "t";
+          title.textContent = n.title || "(no title)";
+          const url = document.createElement("div");
+          url.className = "u";
+          url.textContent = n.url;
+          url.title = n.url;
           const meta = document.createElement("span");
-          meta.textContent = [TR[n.tr] ?? n.tr, "⏱ " + fmtDur(n.sec), n.at].filter(Boolean).join(" • ");
-          const footer = document.createElement("div"); footer.className = "footer"; footer.append(meta);
+          meta.textContent = [TR[n.tr] ?? n.tr, "⏱ " + fmtDur(n.sec), n.at]
+            .filter(Boolean)
+            .join(" • ");
+          const footer = document.createElement("div");
+          footer.className = "footer";
+          footer.append(meta);
           if (openable(n.url)) {
             const a = document.createElement("a");
-            a.href = n.url; a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = "open ↗";
+            a.href = n.url;
+            a.target = "_blank";
+            a.rel = "noopener noreferrer";
+            a.textContent = "open ↗";
             footer.append(a);
           }
           tip.append(x, title, url, footer);
           tip.style.display = "block";
-          cardFor = sel; ch = tip.offsetHeight; dirty = true;
+          cardFor = sel;
+          ch = tip.offsetHeight;
+          dirty = true;
         }
         function placeCard() {
           if (cardFor == null) return;
           const n = byId.get(cardFor);
           if (!n || n.x === undefined) return;
-          const sx = T.applyX(n.x), sy = T.applyY(n.y), off = n.r * T.k + 12;
-          let x = sx + off; if (x + cw > W - 8) x = sx - off - cw;
+          const sx = T.applyX(n.x),
+            sy = T.applyY(n.y),
+            off = n.r * T.k + 12;
+          let x = sx + off;
+          if (x + cw > W - 8) x = sx - off - cw;
           tip.style.left = Math.max(8, x) + "px";
           tip.style.top = Math.max(8, Math.min(sy - ch / 2, H - ch - 8)) + "px";
         }
 
+        // ---- Time picker ----
+        const pop = $("time");
+        const pad = (n) => String(n).padStart(2, "0");
+        const ymd = (ms) => {
+          const d = new Date(ms);
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        };
+        const fmtD = (ms) =>
+          new Date(ms).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+        const fmtDT = (ms) =>
+          new Date(ms).toLocaleString(undefined, {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        const H1 = 3600e3,
+          D1 = 864e5;
+        const PILLS = [
+          ["1 hour", H1],
+          ["6 hours", 6 * H1],
+          ["24 hours", D1],
+          ["3 days", 3 * D1],
+          ["7 days", 7 * D1],
+          ["30 days", 30 * D1],
+          ["90 days", 90 * D1],
+          ["1 year", 365 * D1],
+        ];
+        const UNITS = { hour: H1, day: D1, week: 7 * D1, month: 30 * D1 };
+
+        function summary() {
+          if (tf.mode === "rel") return `last ${tf.label} → latest`;
+          if (tf.from == null && tf.to == null) return "all timess";
+          return `${tf.from != null ? fmtD(tf.from) : "…"} → ${tf.to != null ? fmtD(tf.to - 1) : "…"}`;
+        }
+        function showTab(t) {
+          document
+            .querySelectorAll(".tab")
+            .forEach((b) => b.classList.toggle("on", b.dataset.tab === t));
+          $("pane-abs").style.display = t === "abs" ? "block" : "none";
+          $("pane-rel").style.display = t === "rel" ? "block" : "none";
+          $("terr").textContent = "";
+        }
+        function syncPop() {
+          showTab(tf.mode === "rel" ? "rel" : "abs");
+          const lo = tf.from != null ? Math.max(tf.from, minTs) : minTs;
+          const hi = tf.to != null ? Math.min(tf.to - 1, maxTs) : maxTs;
+          $("tf").value = lo ? ymd(lo) : "";
+          $("tt").value = hi ? ymd(hi) : "";
+          document
+            .querySelectorAll(".pill")
+            .forEach((p) =>
+              p.classList.toggle(
+                "on",
+                tf.mode === "rel" && p.dataset.l === tf.label,
+              ),
+            );
+        }
+        function openPop(show) {
+          pop.style.display = show ? "block" : "none";
+          if (show) syncPop();
+        }
+        function applyTime(next) {
+          tf = next;
+          $("timeBtn").textContent = "time: " + summary();
+          userMoved = false; // let the view re-fit to the new range
+          build();
+          openPop(false); // the picker re-syncs its fields next time it opens
+        }
+        function applyRel(ms, label) {
+          applyTime({ mode: "rel", from: maxTs - ms, to: null, label });
+        }
+
+        if (!maxTs) $("timeBtn").style.display = "none";
+        $("timeBtn").textContent = "time: " + summary();
+        $("latest").textContent = maxTs ? `(${fmtDT(maxTs)})` : "";
+        $("tinfo").textContent =
+          (maxTs ? `Loaded visits: ${fmtD(minTs)} → ${fmtD(maxTs)}. ` : "") +
+          (CFG.truncated
+            ? `The limit of ${CFG.limit} was reached, so older visits weren't loaded. Re-run with a higher --limit to include them.`
+            : CFG.from == null && CFG.to == null
+              ? "All history is loaded."
+              : "To look outside this range, re-run with --from-date / --to-date.");
+        if (minTs) {
+          $("tf").min = $("tt").min = ymd(minTs);
+        }
+        if (maxTs) {
+          $("tf").max = $("tt").max = ymd(maxTs);
+        }
+
+        PILLS.forEach(([label, ms]) => {
+          const b = document.createElement("button");
+          b.className = "pill";
+          b.dataset.l = label;
+          b.textContent = label;
+          b.onclick = () => applyRel(ms, label);
+          $("pills").append(b);
+        });
+        document.querySelectorAll(".tab").forEach((b) => {
+          b.onclick = () => showTab(b.dataset.tab);
+        });
+        $("relGo").onclick = () => {
+          const n = Math.floor(+$("cn").value),
+            u = $("cu").value;
+          if (!(n >= 1)) {
+            $("terr").textContent = "enter a number of 1 or more";
+            return;
+          }
+          applyRel(n * UNITS[u], `${n} ${u}${n === 1 ? "" : "s"}`);
+        };
+        $("absGo").onclick = () => {
+          let f = $("tf").value,
+            t = $("tt").value;
+          if (f && minTs && f === ymd(minTs)) f = ""; // the oldest loaded day means "no start bound"
+          if (t && maxTs && t === ymd(maxTs)) t = ""; // the latest loaded day means "no end bound"
+          const from = f ? new Date(f + "T00:00:00").getTime() : null;
+          let to = null;
+          if (t) {
+            const d = new Date(t + "T00:00:00");
+            d.setDate(d.getDate() + 1);
+            to = d.getTime();
+          } // end date is inclusive
+          if (from != null && to != null && from >= to) {
+            $("terr").textContent = "start must be before end";
+            return;
+          }
+          applyTime(
+            from == null && to == null
+              ? { mode: "all", from: null, to: null, label: "" }
+              : { mode: "abs", from, to, label: "" },
+          );
+        };
+        $("absAll").onclick = () =>
+          applyTime({ mode: "all", from: null, to: null, label: "" });
+        $("timeBtn").onclick = () => openPop(pop.style.display !== "block");
+        document.addEventListener("mousedown", (e) => {
+          if (
+            pop.style.display === "block" &&
+            !pop.contains(e.target) &&
+            e.target !== $("timeBtn")
+          )
+            openPop(false);
+        });
+
         // ---- Interaction ----
         let dragging = false;
-        function findNode(x, y) { // nearest visible node under the point
-          let best = null, bd = Infinity;
+        function findNode(x, y) {
+          // nearest visible node under the point
+          let best = null,
+            bd = Infinity;
           for (const n of simNodes) {
             if (!vis(n)) continue;
             const d = Math.hypot(n.x - x, n.y - y);
-            if (d <= n.r + 8 / T.k && d < bd) { bd = d; best = n; }
+            if (d <= n.r + 8 / T.k && d < bd) {
+              bd = d;
+              best = n;
+            }
           }
           return best;
         }
         const nodeAt = (e) => {
-          const r = canvas.getBoundingClientRect(), p = T.invert([e.clientX - r.left, e.clientY - r.top]);
+          const r = canvas.getBoundingClientRect(),
+            p = T.invert([e.clientX - r.left, e.clientY - r.top]);
           return findNode(p[0], p[1]);
         };
         canvas.addEventListener("mousemove", (e) => {
           if (dragging) return;
-          const n = nodeAt(e), id = n ? n.id : null;
+          const n = nodeAt(e),
+            id = n ? n.id : null;
           canvas.style.cursor = n ? "pointer" : "default"; // pointer only over nodes
-          if (id !== hoveredId) { hoveredId = id; recompute(); }
+          if (id !== hoveredId) {
+            hoveredId = id;
+            recompute();
+          }
         });
-        canvas.addEventListener("mouseleave", () => { if (hoveredId != null) { hoveredId = null; recompute(); } });
+        canvas.addEventListener("mouseleave", () => {
+          if (hoveredId != null) {
+            hoveredId = null;
+            recompute();
+          }
+        });
         canvas.addEventListener("click", (e) => {
           const n = nodeAt(e);
           sel = n ? (sel === n.id ? null : n.id) : null;
-          recompute(); syncCard();
+          recompute();
+          syncCard();
         });
 
         d3.select(canvas) // drag is registered before zoom, so grabbing a node doesn't pan
-          .call(d3.drag().container(canvas)
-            .subject((e) => { const p = T.invert([e.x, e.y]); return findNode(p[0], p[1]); })
-            .on("start", (e) => {
-              dragging = true;
-              if (!e.active) sim.alphaTarget(0.3).restart();
-              e.subject.fx = e.subject.x; e.subject.fy = e.subject.y;
-            })
-            .on("drag", (e) => { const p = T.invert([e.x, e.y]); e.subject.fx = p[0]; e.subject.fy = p[1]; })
-            .on("end", (e) => { dragging = false; if (!e.active) sim.alphaTarget(0); e.subject.fx = e.subject.fy = null; }))
+          .call(
+            d3
+              .drag()
+              .container(canvas)
+              .subject((e) => {
+                const p = T.invert([e.x, e.y]);
+                return findNode(p[0], p[1]);
+              })
+              .on("start", (e) => {
+                dragging = true;
+                if (!e.active) sim.alphaTarget(0.3).restart();
+                e.subject.fx = e.subject.x;
+                e.subject.fy = e.subject.y;
+              })
+              .on("drag", (e) => {
+                const p = T.invert([e.x, e.y]);
+                e.subject.fx = p[0];
+                e.subject.fy = p[1];
+              })
+              .on("end", (e) => {
+                dragging = false;
+                if (!e.active) sim.alphaTarget(0);
+                e.subject.fx = e.subject.fy = null;
+              }),
+          )
           .call(zoom)
           .on("dblclick.zoom", null);
 
         $("q").oninput = recompute;
-        $("labels").onchange = () => { dirty = true; };
-        $("dir").onchange = () => { dirOn = $("dir").checked; recompute(); };
-        $("single").onchange = () => { userMoved = false; build(); };
+        $("labels").onchange = () => {
+          dirty = true;
+        };
+        $("dir").onchange = () => {
+          dirOn = $("dir").checked;
+          recompute();
+        };
+        $("single").onchange = () => {
+          userMoved = false;
+          build();
+        };
         addEventListener("resize", resize);
         addEventListener("keydown", (e) => {
-          if (e.key === "Escape") { sel = null; $("q").value = ""; $("q").blur(); recompute(); syncCard(); return; }
-          if (e.target === $("q") || e.metaKey || e.ctrlKey || e.altKey) return;
-          if (e.key === "/") { e.preventDefault(); $("q").focus(); }
-          else if (e.key === "l") $("labels").click();
+          if (e.key === "Escape") {
+            if (pop.style.display === "block") {
+              openPop(false);
+              return;
+            }
+            sel = null;
+            $("q").value = "";
+            $("q").blur();
+            recompute();
+            syncCard();
+            return;
+          }
+          if (e.metaKey || e.ctrlKey || e.altKey) return;
+          if (
+            e.target.matches(
+              "input[type=search], input[type=date], input[type=number], select",
+            )
+          )
+            return;
+          if (e.key === "/") {
+            e.preventDefault();
+            $("q").focus();
+          } else if (e.key === "l") $("labels").click();
           else if (e.key === "u") $("single").click();
           else if (e.key === "d") $("dir").click();
+          else if (e.key === "t" && maxTs)
+            openPop(pop.style.display !== "block");
         });
 
         resize();
