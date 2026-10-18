@@ -1,4 +1,6 @@
-## idea
+## Footprints
+
+![footprints](./public/footprints.png)
 
 > Explore personal browsing history through queries and interactive visualizations. The goal is to turn browser history from a collection of URLs into something we can explore, helping people understand their browsing patterns, revisit research trails, and discover connections between pages - chatgpt
 
