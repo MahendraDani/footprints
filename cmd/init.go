@@ -17,9 +17,10 @@ import (
 )
 
 var (
-	initProfile string
-	initChoose  bool
-	initStatus  bool
+	initProfile   string
+	initChoose    bool
+	initStatus    bool
+	initShowEmail bool
 )
 
 var initCmd = &cobra.Command{
@@ -35,7 +36,8 @@ remembers your choice. Use --choose to pick again, or --profile to skip the ques
 	Example: `  footprints init
   footprints init --choose
   footprints init --profile "Profile 1"
-  footprints init --profile work@example.com`,
+  footprints init --profile work@example.com
+  footprints init --status --show-email`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if initStatus {
 			return printStatus()
@@ -89,9 +91,10 @@ remembers your choice. Use --choose to pick again, or --profile to skip the ques
 
 func init() {
 	rootCmd.AddCommand(initCmd)
-	initCmd.Flags().StringVar(&initProfile, "profile", "", "Chrome profile to read: folder name (\"Profile 1\"), display name, or email")
-	initCmd.Flags().BoolVar(&initChoose, "choose", false, "Choose the Chrome profile again, ignoring the saved choice")
-	initCmd.Flags().BoolVar(&initStatus, "status", false, "Show cached Chrome profiles and when each was last synced, then exit")
+	initCmd.Flags().StringVarP(&initProfile, "profile", "p", "", "Chrome profile to read: folder name (\"Profile 1\"), display name, or email")
+	initCmd.Flags().BoolVarP(&initChoose, "choose", "c", false, "Choose the Chrome profile again, ignoring the saved choice")
+	initCmd.Flags().BoolVarP(&initStatus, "status", "s", false, "Show cached Chrome profiles and when each was last synced, then exit")
+	initCmd.Flags().BoolVarP(&initShowEmail, "show-email", "e", false, "Show full email addresses (masked by default)")
 }
 
 func pickProfile(ps []chrome.Profile) (chrome.Profile, error) {
@@ -150,7 +153,7 @@ func describe(p chrome.Profile) string {
 		s += fmt.Sprintf("  %q", p.Name)
 	}
 	if p.Email != "" {
-		s += " <" + p.Email + ">"
+		s += " <" + shownEmail(p.Email) + ">"
 	}
 	if p.Visits == 0 {
 		return s + " — no visits"
@@ -226,7 +229,7 @@ func printStatus() error {
 			who += fmt.Sprintf("  %q", i.Name)
 		}
 		if i.Username != "" {
-			who += " <" + i.Username + ">"
+			who += " <" + shownEmail(i.Username) + ">"
 		}
 		synced := "never"
 		if !i.LastSynced.IsZero() {
@@ -252,4 +255,30 @@ func ago(d time.Duration) string {
 	default:
 		return fmt.Sprintf("%d days ago", int(d.Hours()/24))
 	}
+}
+
+// maskEmail hides most of the local part: "mahendra@gmail.com" -> "ma***@gmail.com".
+// The "***" has a fixed length, so the real length isn't revealed either.
+func maskEmail(e string) string {
+	if e == "" {
+		return ""
+	}
+	local, domain := e, ""
+	if at := strings.LastIndex(e, "@"); at > 0 {
+		local, domain = e[:at], e[at:]
+	}
+	r := []rune(local)
+	keep := 1
+	if len(r) >= 5 {
+		keep = 2
+	}
+	return string(r[:keep]) + "***" + domain
+}
+
+// shownEmail returns the address as it should be printed, honoring --show-email.
+func shownEmail(e string) string {
+	if initShowEmail {
+		return e
+	}
+	return maskEmail(e)
 }
